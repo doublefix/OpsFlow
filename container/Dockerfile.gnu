@@ -4,6 +4,7 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 COPY . .
+RUN go mod tidy
 RUN go mod download
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o opsflow ./main.go
 

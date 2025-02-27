@@ -168,9 +168,10 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 
 func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.WorkerGroupSpec {
 	var workerGroupSpecs []rayv1.WorkerGroupSpec
-	replicas := int32(1)
-	minReplicas := int32(1)
+	replicas := int32(2)
+	minReplicas := int32(2)
 	maxReplicas := int32(5)
+	defaultGroupName := "workergroup"
 
 	for _, machine := range machines {
 		if !machine.IsHeadNode {
@@ -186,11 +187,12 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 				}
 			}
 
+			// Replicas,MinReplicas,MaxReplicas
 			workerGroupSpec := rayv1.WorkerGroupSpec{
-				Replicas:       &replicas,    // 默认副本数量为1，后续可根据配置动态调整
-				MinReplicas:    &minReplicas, // 最小副本数量
-				MaxReplicas:    &maxReplicas, // 最大副本数量
-				GroupName:      "workergroup",
+				Replicas:       &replicas,        // 默认副本数量为1，后续可根据配置动态调整
+				MinReplicas:    &minReplicas,     // 最小副本数量
+				MaxReplicas:    &maxReplicas,     // 最大副本数量
+				GroupName:      defaultGroupName, // 默认工作组名称
 				RayStartParams: map[string]string{},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
