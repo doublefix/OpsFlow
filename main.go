@@ -73,21 +73,18 @@ type AppContext interface {
 }
 
 type appContextImpl struct {
-	ctx       context.Context
-	client    Client
-	outputDir string
+	ctx    context.Context
+	client Client
 }
 
 func (a *appContextImpl) Ctx() context.Context { return a.ctx }
 func (a *appContextImpl) Client() Client       { return a.client }
-func (a *appContextImpl) OutputDir() string    { return a.outputDir }
 
 func AppContextMiddleware(client Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		appCtx := &appContextImpl{
-			ctx:       c.Request.Context(),
-			client:    client,
-			outputDir: "/tmp/output",
+			ctx:    c.Request.Context(),
+			client: client,
 		}
 		c.Set("appCtx", appCtx)
 		c.Next()
