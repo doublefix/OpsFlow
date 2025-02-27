@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func CreateGinRouter(client internal.Client) *gin.Engine {
@@ -138,7 +138,7 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 	for key, value := range headMachine.CustomResources {
 		resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
 		if strings.HasPrefix(key, "nvidia.com") {
-			runtimeClassName = pointer.String("nvidia")
+			runtimeClassName = ptr.To("nvidia")
 		}
 	}
 
@@ -182,7 +182,7 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 			for key, value := range machine.CustomResources {
 				resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
 				if strings.HasPrefix(key, "nvidia.com") {
-					runtimeClassName = pointer.String("nvidia")
+					runtimeClassName = ptr.To("nvidia")
 				}
 			}
 
