@@ -168,13 +168,14 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 
 func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.WorkerGroupSpec {
 	var workerGroupSpecs []rayv1.WorkerGroupSpec
-	replicas := int32(2)
-	minReplicas := int32(2)
-	maxReplicas := int32(5)
+	defaultReplicas := int32(1)
+	defaultMinReplicas := int32(1)
+	defaultMaxReplicas := int32(1)
 	defaultGroupName := "workergroup"
 
 	for _, machine := range machines {
 		if !machine.IsHeadNode {
+			// 创建资源列表，包括 CPU、内存和自定义资源
 			resourceList := corev1.ResourceList{
 				"cpu":    resource.MustParse(machine.CPU),
 				"memory": resource.MustParse(machine.Memory),
@@ -187,12 +188,30 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 				}
 			}
 
-			// Replicas,MinReplicas,MaxReplicas
+			// 根据 MachineType 设置 Replicas、MinReplicas 和 MaxReplicas
+			var replicas, minReplicas, maxReplicas *int32
+			var groupName string
+
+			if machine.MachineType == MachineTypeGroup {
+				// 如果是 group 类型，使用用户指定的值
+				replicas = machine.Replicas
+				minReplicas = machine.MinReplicas
+				maxReplicas = machine.MaxReplicas
+				groupName = machine.GroupName
+			} else {
+				// 如果是 single 类型，使用默认值
+				replicas = &defaultReplicas
+				minReplicas = &defaultMinReplicas
+				maxReplicas = &defaultMaxReplicas
+				groupName = defaultGroupName
+			}
+
+			// 创建 WorkerGroupSpec
 			workerGroupSpec := rayv1.WorkerGroupSpec{
-				Replicas:       &replicas,        // 默认副本数量为1，后续可根据配置动态调整
-				MinReplicas:    &minReplicas,     // 最小副本数量
-				MaxReplicas:    &maxReplicas,     // 最大副本数量
-				GroupName:      defaultGroupName, // 默认工作组名称
+				Replicas:       replicas,
+				MinReplicas:    minReplicas,
+				MaxReplicas:    maxReplicas,
+				GroupName:      groupName,
 				RayStartParams: map[string]string{},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
@@ -253,15 +272,28 @@ type ClusterConfig struct {
 	Machines []MachineConfig `json:"machines"`
 }
 
-type MachineConfig struct {
-	Name            string            `json:"name"`
-	CPU             string            `json:"cpu"`
-	Memory          string            `json:"memory"`
-	CustomResources map[string]string `json:"customResources,omitempty"` // 自定义资源
-	Ports           []PortConfig      `json:"ports"`
-	IsHeadNode      bool              `json:"isHeadNode,omitempty"`
-}
+type MachineType string
 
+const (
+	MachineTypeSingle MachineType = "single" // 单个机器
+	MachineTypeGroup  MachineType = "group"  // 机器组
+)
+
+type MachineConfig struct {
+	Name            string            `json:"name"`                      // 机器名称
+	MachineType     MachineType       `json:"machineType"`               // 机器种类：single 或 group
+	CPU             string            `json:"cpu"`                       // CPU 资源
+	Memory          string            `json:"memory"`                    // 内存资源
+	CustomResources map[string]string `json:"customResources,omitempty"` // 自定义资源（如 GPU）
+	Ports           []PortConfig      `json:"ports"`                     // 端口配置
+	IsHeadNode      bool              `json:"isHeadNode,omitempty"`      // 是否为头节点
+
+	// 以下字段仅在 MachineType 为 group 时有效
+	GroupName   string `json:"groupName,omitempty"`   // 机器组名称
+	Replicas    *int32 `json:"replicas,omitempty"`    // 副本数量
+	MinReplicas *int32 `json:"minReplicas,omitempty"` // 最小副本数量
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"` // 最大副本数量
+}
 type PortConfig struct {
 	Name          string `json:"name"`
 	ContainerPort int32  `json:"containerPort"`
