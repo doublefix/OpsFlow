@@ -4,36 +4,22 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/modcoco/OpsFlow/internal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-func CreateGinRouter(client Client) *gin.Engine {
+func CreateGinRouter(client internal.Client) *gin.Engine {
 	r := gin.Default()
-	r.Use(AppContextMiddleware(client))
+	r.Use(internal.AppContextMiddleware(client))
 
-	r.GET("/test", func(c *gin.Context) {
-		appCtx := getAppContext(c)
-		pods, err := appCtx.Client().Core().CoreV1().Pods("default").List(
-			appCtx.Ctx(),
-			metav1.ListOptions{},
-		)
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(200, gin.H{
-			"message": "Kubernetes client is working",
-			"pods":    pods.Items,
-		})
-	})
+	r.GET("/test", GetPodInfo)
 
 	return r
 }
 
 func main() {
-	client, err := newClient()
+	client, err := internal.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
@@ -42,4 +28,21 @@ func main() {
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func GetPodInfo(c *gin.Context) {
+	appCtx := internal.GetAppContext(c)
+	pods, err := appCtx.Client().Core().CoreV1().Pods("default").List(
+		appCtx.Ctx(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Kubernetes client is working",
+		"pods":    pods.Items,
+	})
 }

@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func (c *clientImpl) Ray() rayclient.Interface   { return c.ray }
 func (c *clientImpl) Dynamic() dynamic.Interface { return c.dynamic }
 func (c *clientImpl) Config() rest.Config        { return c.config }
 
-func newClient() (Client, error) {
+func NewClient() (Client, error) {
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{},

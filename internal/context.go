@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -19,6 +19,6 @@ type appContextImpl struct {
 func (a *appContextImpl) Ctx() context.Context { return a.ctx }
 func (a *appContextImpl) Client() Client       { return a.client }
 
-func getAppContext(c *gin.Context) AppContext {
+func GetAppContext(c *gin.Context) AppContext {
 	return c.MustGet("appCtx").(AppContext)
 }
