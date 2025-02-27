@@ -1,26 +1,28 @@
 package main
 
 import (
-	"log"
-	"time"
-
 	"fmt"
+	"log"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/modcoco/OpsFlow/internal"
 	rayv1 "github.com/ray-project/kuberay/ray-operator/apis/ray/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/utils/pointer"
 )
 
 func CreateGinRouter(client internal.Client) *gin.Engine {
 	r := gin.Default()
 	r.Use(internal.AppContextMiddleware(client))
 
-	r.GET("/test", GetPodInfo)
-	r.GET("/ray", GetCreateRayClusterInfo)
+	r.GET("/api/v1/test", GetPodInfo)
+	r.POST("/api/v1/raycluster", GetCreateRayClusterInfo)
 
 	return r
 }
@@ -55,37 +57,91 @@ func GetPodInfo(c *gin.Context) {
 }
 
 func GetCreateRayClusterInfo(c *gin.Context) {
+	var clusterConfig ClusterConfig
+	if err := c.ShouldBindJSON(&clusterConfig); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	internal.MarshalToJSON(clusterConfig)
+
 	appCtx := internal.GetAppContext(c)
-	aa, err := appCtx.Client().Ray().RayV1().RayClusters("chess-kuberay").Get(appCtx.Ctx(), "raycluster-kuberay", metav1.GetOptions{})
+	existingCluster, err := appCtx.Client().Ray().RayV1().RayClusters(clusterConfig.Namespace).Get(appCtx.Ctx(), clusterConfig.ClusterName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if existingCluster.Name == clusterConfig.ClusterName {
+		fmt.Println(existingCluster.Name)
+		c.JSON(400, gin.H{"message": "Cluster already exists"})
+		return
+	}
+
+	rayCluster := CreateRayCluster(clusterConfig)
+	// internal.MarshalToJSON(rayCluster)
+	res, err := appCtx.Client().Ray().RayV1().RayClusters(clusterConfig.Namespace).Create(appCtx.Ctx(), rayCluster, metav1.CreateOptions{})
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	print("=> ", aa.Name)
-	// rayCluster := CreateRayCluster()
-	// MarshalToJSON(rayCluster)
+	fmt.Println(res.Name)
 
 	c.JSON(200, gin.H{
-		"message": "Ray Cluster is created",
+		"message": fmt.Sprintf("Ray Cluster %s is created", res.Name),
 	})
 }
 
-func CreateRayCluster() *rayv1.RayCluster {
+func CreateRayCluster(config ClusterConfig) *rayv1.RayCluster {
+	rayVersion := config.RayVersion
+	if rayVersion == "" {
+		rayVersion = "2.41.0"
+	}
+	rayImage := config.RayImage
+	if rayImage == "" {
+		rayImage = "rayproject/ray:" + rayVersion
+	}
+
+	headGroupSpec := CreateHeadGroupSpec(config.Machines, rayImage)
+	workerGroupSpecs := CreateWorkerGroupSpecs(config.Machines, rayImage)
 
 	return &rayv1.RayCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "raycluster-kuberay",
-			Namespace: "chess-kuberay",
+			Name:              config.ClusterName,
+			Namespace:         config.Namespace,
+			CreationTimestamp: metav1.Time{Time: time.Now()},
 		},
 		Spec: rayv1.RayClusterSpec{
-			RayVersion:       "2.41.0",
-			HeadGroupSpec:    CreateHeadGroupSpec("2.41.0", "rayproject/ray:2.41.0"),
-			WorkerGroupSpecs: CreateWorkerGroupSpecs("rayproject/ray:2.41.0", 1),
+			RayVersion:       rayVersion,
+			HeadGroupSpec:    headGroupSpec,
+			WorkerGroupSpecs: workerGroupSpecs,
 		},
 	}
 }
 
-func CreateHeadGroupSpec(rayVersion, rayImage string) rayv1.HeadGroupSpec {
+func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGroupSpec {
+	var headMachine *MachineConfig
+	for _, machine := range machines {
+		if machine.IsHeadNode {
+			headMachine = &machine
+			break
+		}
+	}
+
+	if headMachine == nil {
+		headMachine = &machines[0]
+	}
+
+	resourceList := corev1.ResourceList{
+		"cpu":    resource.MustParse(headMachine.CPU),
+		"memory": resource.MustParse(headMachine.Memory),
+	}
+	var runtimeClassName *string
+	for key, value := range headMachine.CustomResources {
+		resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
+		if strings.HasPrefix(key, "nvidia.com") {
+			runtimeClassName = pointer.String("nvidia")
+		}
+	}
+
 	return rayv1.HeadGroupSpec{
 		RayStartParams: map[string]string{},
 		Template: corev1.PodTemplateSpec{
@@ -95,79 +151,116 @@ func CreateHeadGroupSpec(rayVersion, rayImage string) rayv1.HeadGroupSpec {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "ray-head",
+						Name:  machines[0].Name,
 						Image: rayImage,
 						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								"cpu":    resource.MustParse("2"),
-								"memory": resource.MustParse("4Gi"),
-							},
-							Requests: corev1.ResourceList{
-								"cpu":    resource.MustParse("2"),
-								"memory": resource.MustParse("4Gi"),
-							},
+							Limits:   resourceList,
+							Requests: resourceList,
 						},
-						Ports: []corev1.ContainerPort{
-							{
-								ContainerPort: 6379,
-								Name:          "gcs-server",
-							},
-							{
-								ContainerPort: 8265,
-								Name:          "dashboard",
-							},
-							{
-								ContainerPort: 10001,
-								Name:          "client",
-							},
-						},
+						Ports: ConvertPorts(headMachine.Ports),
 					},
 				},
+				RuntimeClassName: runtimeClassName,
 			},
 		},
 	}
 }
 
-func CreateWorkerGroupSpecs(rayImage string, numGroups int) []rayv1.WorkerGroupSpec {
+func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.WorkerGroupSpec {
 	var workerGroupSpecs []rayv1.WorkerGroupSpec
-
 	replicas := int32(1)
 	minReplicas := int32(1)
 	maxReplicas := int32(5)
 
-	for i := range numGroups {
-		workerGroupSpec := rayv1.WorkerGroupSpec{
-			Replicas:       &replicas,
-			MinReplicas:    &minReplicas,
-			MaxReplicas:    &maxReplicas,
-			GroupName:      "workergroup-" + fmt.Sprint(i+1),
-			RayStartParams: map[string]string{},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					CreationTimestamp: metav1.Time{Time: time.Now()},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "ray-worker",
-							Image: rayImage,
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									"cpu":    resource.MustParse("1"),
-									"memory": resource.MustParse("1Gi"),
+	for _, machine := range machines {
+		if !machine.IsHeadNode {
+			resourceList := corev1.ResourceList{
+				"cpu":    resource.MustParse(machine.CPU),
+				"memory": resource.MustParse(machine.Memory),
+			}
+			var runtimeClassName *string
+			for key, value := range machine.CustomResources {
+				resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
+				if strings.HasPrefix(key, "nvidia.com") {
+					runtimeClassName = pointer.String("nvidia")
+				}
+			}
+
+			workerGroupSpec := rayv1.WorkerGroupSpec{
+				Replicas:       &replicas,    // 默认副本数量为1，后续可根据配置动态调整
+				MinReplicas:    &minReplicas, // 最小副本数量
+				MaxReplicas:    &maxReplicas, // 最大副本数量
+				GroupName:      "workergroup",
+				RayStartParams: map[string]string{},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.Time{Time: time.Now()},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  machine.Name,
+								Image: rayImage,
+								Resources: corev1.ResourceRequirements{
+									Limits:   resourceList,
+									Requests: resourceList,
 								},
-								Requests: corev1.ResourceList{
-									"cpu":    resource.MustParse("1"),
-									"memory": resource.MustParse("1Gi"),
-								},
+								Ports: ConvertPorts(machine.Ports),
 							},
 						},
+						RuntimeClassName: runtimeClassName,
 					},
 				},
-			},
+			}
+			workerGroupSpecs = append(workerGroupSpecs, workerGroupSpec)
 		}
-		workerGroupSpecs = append(workerGroupSpecs, workerGroupSpec)
 	}
 
 	return workerGroupSpecs
+}
+
+// ConvertPorts 将端口配置转换为 ContainerPort 列表
+func ConvertPorts(ports []PortConfig) []corev1.ContainerPort {
+	var containerPorts []corev1.ContainerPort
+	for _, port := range ports {
+		containerPorts = append(containerPorts, corev1.ContainerPort{
+			Name:          port.Name,
+			ContainerPort: port.ContainerPort,
+		})
+	}
+	return containerPorts
+}
+
+type ClusterType string
+
+const (
+	ClusterTypeRay     ClusterType = "ray"
+	ClusterTypeVolcano ClusterType = "volcano"
+)
+
+type ClusterConfig struct {
+	ClusterType ClusterType `json:"clusterType"`
+	ClusterName string      `json:"clusterName"`
+	Namespace   string      `json:"namespace"`
+	// Ray-specific fields
+	RayVersion string `json:"rayVersion,omitempty"`
+	RayImage   string `json:"rayImage,omitempty"`
+	// Volcano-specific fields
+	VolcanoWorkerQueue string `json:"workerQueue,omitempty"` // Volcano 特有的字段
+
+	Machines []MachineConfig `json:"machines"`
+}
+
+type MachineConfig struct {
+	Name            string            `json:"name"`
+	CPU             string            `json:"cpu"`
+	Memory          string            `json:"memory"`
+	CustomResources map[string]string `json:"customResources,omitempty"` // 自定义资源
+	Ports           []PortConfig      `json:"ports"`
+	IsHeadNode      bool              `json:"isHeadNode,omitempty"`
+}
+
+type PortConfig struct {
+	Name          string `json:"name"`
+	ContainerPort int32  `json:"containerPort"`
 }
