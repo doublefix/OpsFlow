@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opsflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opsflow
+  template:
+    metadata:
+      labels:
+        app: opsflow
+    spec:
+      serviceAccountName: opsflow-sa
+      containers:
+      - name: opsflow
+        image: modco/opsflow:2025.0227.1950
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opsflow-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opsflow-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opsflow-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: opsflow-sa
+roleRef:
+  kind: Role
+  name: opsflow-role
+  apiGroup: rbac.authorization.k8s.io
