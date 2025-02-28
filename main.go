@@ -77,7 +77,7 @@ func GetCreateRayClusterInfo(c *gin.Context) {
 	}
 
 	rayCluster := CreateRayCluster(clusterConfig)
-	// internal.MarshalToJSON(rayCluster)
+	internal.MarshalToJSON(rayCluster)
 	res, err := appCtx.Client().Ray().RayV1().RayClusters(clusterConfig.Namespace).Create(appCtx.Ctx(), rayCluster, metav1.CreateOptions{})
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
@@ -142,6 +142,23 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 		}
 	}
 
+	// Create volumes and volume mounts from the machine config
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+	for _, volume := range headMachine.Volumes {
+		volumes = append(volumes, corev1.Volume{
+			Name: volume.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: volume.Source,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: volume.Path,
+		})
+	}
 	return rayv1.HeadGroupSpec{
 		RayStartParams: map[string]string{},
 		Template: corev1.PodTemplateSpec{
@@ -157,10 +174,12 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 							Limits:   resourceList,
 							Requests: resourceList,
 						},
-						Ports: ConvertPorts(headMachine.Ports),
+						Ports:        ConvertPorts(headMachine.Ports),
+						VolumeMounts: volumeMounts,
 					},
 				},
 				RuntimeClassName: runtimeClassName,
+				Volumes:          volumes,
 			},
 		},
 	}
@@ -206,6 +225,24 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 				groupName = defaultGroupName
 			}
 
+			// 创建 volumes 和 volume mounts
+			var volumes []corev1.Volume
+			var volumeMounts []corev1.VolumeMount
+			for _, volume := range machine.Volumes {
+				volumes = append(volumes, corev1.Volume{
+					Name: volume.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: volume.Source,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:      volume.Name,
+					MountPath: volume.Path,
+				})
+			}
+
 			// 创建 WorkerGroupSpec
 			workerGroupSpec := rayv1.WorkerGroupSpec{
 				Replicas:       replicas,
@@ -226,10 +263,12 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 									Limits:   resourceList,
 									Requests: resourceList,
 								},
-								Ports: ConvertPorts(machine.Ports),
+								Ports:        ConvertPorts(machine.Ports),
+								VolumeMounts: volumeMounts,
 							},
 						},
 						RuntimeClassName: runtimeClassName,
+						Volumes:          volumes,
 					},
 				},
 			}
@@ -293,7 +332,17 @@ type MachineConfig struct {
 	Replicas    *int32 `json:"replicas,omitempty"`    // 副本数量
 	MinReplicas *int32 `json:"minReplicas,omitempty"` // 最小副本数量
 	MaxReplicas *int32 `json:"maxReplicas,omitempty"` // 最大副本数量
+
+	// 以下字段用来挂载卷
+	Volumes []VolumeConfig `json:"volumes,omitempty"` // 卷挂载配置
 }
+
+type VolumeConfig struct {
+	Name   string `json:"name"`   // 卷的名字
+	Source string `json:"source"` // 卷的源路径
+	Path   string `json:"path"`   // 卷挂载路径
+}
+
 type PortConfig struct {
 	Name          string `json:"name"`
 	ContainerPort int32  `json:"containerPort"`

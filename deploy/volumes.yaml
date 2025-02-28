@@ -1,0 +1,48 @@
+# pvc的出现是分离存储的 管理 和 使用，使得存储资源的动态分配更加灵活和抽象化，而不需要关心具体的存储资源的位置和类型
+# 通过pvc的声明，可以将存储资源的使用和管理分离开来，使得存储资源的使用更加灵活和抽象化。管理员管理pv，用户使用pvc
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-model-deepseek-r1-671b
+  labels:
+    app: model-deepseek-r1-671b
+spec:
+  capacity:
+    storage: 700Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 10.10.10.10
+    path: /mnt/data/models/deepseek-ai_DeepSeek-R1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-model-deepseek-r1-671b
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 700Gi
+  selector:
+    matchLabels:
+      app: model-deepseek-r1-671b
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nfs-pod
+spec:
+  containers:
+  - name: alpine-curl
+    image: docker.io/alpine/curl:8.12.1
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: nfs-volume
+      mountPath: /mnt/data/models/DeepSeek-R1
+  volumes:
+  - name: nfs-volume
+    persistentVolumeClaim:
+      claimName: nfs-pvc-model-deepseek-r1-671b

@@ -4,16 +4,23 @@ Content-Type: application/json
 {
   "clusterType": "ray",
   "clusterName": "raycluster-kuberay",
-  "namespace": "chess-kuberay",
+  "namespace": "idp-kuberay",
   "machines": [
     {
       "machineType": "single",
       "name": "ray-head",
-      "cpu": "2",
-      "memory": "4Gi",
+      "cpu": "12",
+      "memory": "142Gi",
       "customResources": {
-        "nvidia.com/gpu": "1"
+        "nvidia.com/gpu": "10"
       },
+      "volumes": [
+        {
+          "name": "volume-deepseek-r1",
+          "source": "nfs-pvc-model-deepseek-r1-671b",
+          "path": "/mnt/data/models/DeepSeek-R1"
+        }
+      ],
       "ports": [
         {
           "name": "gcs-server",
@@ -33,17 +40,21 @@ Content-Type: application/json
     {
       "machineType": "group",
       "name": "ray-worker",
-      "cpu": "2",
-      "memory": "4Gi",
-      "ports": [
+      "cpu": "12",
+      "memory": "142Gi",
+      "customResources": {
+        "nvidia.com/gpu": "10"
+      },
+      "volumes": [
         {
-          "name": "port-test",
-          "containerPort": 8081
+          "name": "volume-deepseek-r1",
+          "source": "nfs-pvc-model-deepseek-r1-671b",
+          "path": "/mnt/data/models/DeepSeek-R1"
         }
       ],
       "groupName": "workergroup",
-      "replicas": 2,
-      "minReplicas": 2,
+      "replicas": 3,
+      "minReplicas": 3,
       "maxReplicas": 3
     }
   ]
