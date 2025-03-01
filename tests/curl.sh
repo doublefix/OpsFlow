@@ -3,6 +3,8 @@ curl -X POST http://10.96.40.83:8080/api/v1/raycluster \
   -d '{
     "clusterType": "ray",
     "clusterName": "raycluster-kuberay",
+    "rayVersion":"2.41.0",
+    "rayImage":"rayproject/ray:2.41.0-vllm",
     "namespace": "idp-kuberay",
     "machines": [
       {

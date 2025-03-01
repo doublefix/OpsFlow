@@ -1,0 +1,73 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: raycluster-kuberay
+  namespace: idp-kuberay
+spec:
+  headGroupSpec:
+    rayStartParams: {}
+    template:
+      metadata: {}
+      spec:
+        containers:
+        - image: rayproject/ray:2.41.0-vllm
+          name: ray-head
+          ports:
+          - containerPort: 6379
+            name: gcs-server
+            protocol: TCP
+          - containerPort: 8265
+            name: dashboard
+            protocol: TCP
+          - containerPort: 10001
+            name: client
+            protocol: TCP
+          resources:
+            limits:
+              cpu: "32"
+              memory: 512Gi
+              nvidia.com/gpu: "10"
+            requests:
+              cpu: "32"
+              memory: 512Gi
+              nvidia.com/gpu: "10"
+          volumeMounts:
+          - mountPath: /mnt/data/models/DeepSeek-R1
+            name: volume-deepseek-r1
+        runtimeClassName: nvidia
+        volumes:
+        - name: volume-deepseek-r1
+          persistentVolumeClaim:
+            claimName: nfs-pvc-model-deepseek-r1-671b
+  rayVersion: 2.41.0
+  workerGroupSpecs:
+  - groupName: workergroup
+    maxReplicas: 4
+    minReplicas: 4
+    numOfHosts: 1
+    rayStartParams: {}
+    replicas: 4
+    scaleStrategy: {}
+    template:
+      metadata: {}
+      spec:
+        containers:
+        - image: rayproject/ray:2.41.0-vllm
+          name: ray-worker
+          resources:
+            limits:
+              cpu: "32"
+              memory: 512Gi
+              nvidia.com/gpu: "10"
+            requests:
+              cpu: "32"
+              memory: 512Gi
+              nvidia.com/gpu: "10"
+          volumeMounts:
+          - mountPath: /mnt/data/models/DeepSeek-R1
+            name: volume-deepseek-r1
+        runtimeClassName: nvidia
+        volumes:
+        - name: volume-deepseek-r1
+          persistentVolumeClaim:
+            claimName: nfs-pvc-model-deepseek-r1-671b
