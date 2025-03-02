@@ -1,0 +1,113 @@
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: deepseek-r1-671b
+  namespace: idp-kuberay
+spec:
+  entrypoint: python /home/ray/samples/start_vllm_server.py
+  rayClusterSpec:
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        metadata: {}
+        spec:
+          containers:
+          - image: rayproject/ray:2.43.0-vllm_0.7.3
+            name: ray-head
+            ports:
+            - containerPort: 6379
+              name: gcs-server
+              protocol: TCP
+            - containerPort: 8265
+              name: dashboard
+              protocol: TCP
+            - containerPort: 10001
+              name: client
+              protocol: TCP
+            resources:
+              limits:
+                cpu: "32"
+                memory: 512Gi
+                nvidia.com/gpu: "10"
+              requests:
+                cpu: "32"
+                memory: 512Gi
+                nvidia.com/gpu: "10"
+            volumeMounts:
+            - mountPath: /mnt/data/models/DeepSeek-R1
+              name: volume-deepseek-r1
+            - mountPath: /home/ray/samples
+              name: code-sample
+          runtimeClassName: nvidia
+          volumes:
+          - name: volume-deepseek-r1
+            persistentVolumeClaim:
+              claimName: nfs-pvc-model-deepseek-r1-671b
+          - name: code-sample
+            configMap:
+              name: ray-job-code-sample
+              items:
+                - key: start_vllm_server.py
+                  path: start_vllm_server.py
+    rayVersion: 2.43.0
+    workerGroupSpecs:
+    - groupName: workergroup
+      maxReplicas: 4
+      minReplicas: 4
+      numOfHosts: 1
+      rayStartParams: {}
+      replicas: 4
+      scaleStrategy: {}
+      template:
+        metadata: {}
+        spec:
+          containers:
+          - image: rayproject/ray:2.43.0-vllm_0.7.3
+            name: ray-worker
+            resources:
+              limits:
+                cpu: "32"
+                memory: 512Gi
+                nvidia.com/gpu: "10"
+              requests:
+                cpu: "32"
+                memory: 512Gi
+                nvidia.com/gpu: "10"
+            volumeMounts:
+            - mountPath: /mnt/data/models/DeepSeek-R1
+              name: volume-deepseek-r1
+          runtimeClassName: nvidia
+          volumes:
+          - name: volume-deepseek-r1
+            persistentVolumeClaim:
+              claimName: nfs-pvc-model-deepseek-r1-671b
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ray-job-code-sample
+data:
+  start_vllm_server.py: |
+    import ray
+    import subprocess
+
+    @ray.remote
+    def start_deepseek_vllm():
+        command = [
+            "vllm",
+            "serve",
+            "/mnt/data/models/DeepSeek-R1",
+            "--tensor-parallel-size",
+            "8",
+            "--pipeline-parallel-size",
+            "6",
+            "--swap-space",
+            "32",
+            "--trust-remote-code",
+        ]
+        process = subprocess.Popen(command)
+        process.wait()
+
+    if __name__ == "__main__":
+        ray.init()
+        ray.get(start_deepseek_vllm.remote())
