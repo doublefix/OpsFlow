@@ -15,7 +15,7 @@ spec:
       serviceAccountName: opsflow-sa
       containers:
       - name: opsflow
-        image: modco/opsflow:2025.0227.1950
+        image: modco/opsflow:2025.0302.1921
 ---
 apiVersion: v1
 kind: Service
@@ -65,6 +65,58 @@ rules:
   - ray.io
   resources:
   - rayclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ray.io
+  resources:
+  - rayjobs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ray.io
+  resources:
+  - rayservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ray.io
+  resources:
+  - rayservices/status
   verbs:
   - get
   - patch
