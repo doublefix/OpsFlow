@@ -23,6 +23,7 @@ func CreateGinRouter(client internal.Client) *gin.Engine {
 
 	r.GET("/api/v1/test", GetPodInfo)
 	r.POST("/api/v1/raycluster", GetCreateRayClusterInfo)
+	r.POST("/api/v1/rayjob", CreateRayJobHandle)
 
 	return r
 }
@@ -90,6 +91,40 @@ func GetCreateRayClusterInfo(c *gin.Context) {
 	})
 }
 
+func CreateRayJobHandle(c *gin.Context) {
+	var clusterConfig ClusterConfig
+	if err := c.ShouldBindJSON(&clusterConfig); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	internal.MarshalToJSON(clusterConfig)
+
+	appCtx := internal.GetAppContext(c)
+	existingJob, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Get(appCtx.Ctx(), clusterConfig.Job.Name, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if existingJob.Name == clusterConfig.Job.Name {
+		fmt.Println(existingJob.Name)
+		c.JSON(400, gin.H{"message": "Cluster already exists"})
+		return
+	}
+
+	rayJob := CreateRayJob(clusterConfig)
+	internal.MarshalToJSON(rayJob)
+	res, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Create(appCtx.Ctx(), rayJob, metav1.CreateOptions{})
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Println(res.Name)
+
+	c.JSON(200, gin.H{
+		"message": fmt.Sprintf("Ray Cluster %s is created", res.Name),
+	})
+}
+
 func CreateRayCluster(config ClusterConfig) *rayv1.RayCluster {
 	rayVersion := config.RayVersion
 	if rayVersion == "" {
@@ -113,6 +148,37 @@ func CreateRayCluster(config ClusterConfig) *rayv1.RayCluster {
 			RayVersion:       rayVersion,
 			HeadGroupSpec:    headGroupSpec,
 			WorkerGroupSpecs: workerGroupSpecs,
+		},
+	}
+}
+
+func CreateRayJob(config ClusterConfig) *rayv1.RayJob {
+	rayVersion := config.RayVersion
+	if rayVersion == "" {
+		rayVersion = "2.41.0"
+	}
+	rayImage := config.RayImage
+	if rayImage == "" {
+		rayImage = "rayproject/ray:" + rayVersion
+	}
+
+	headGroupSpec := CreateHeadGroupSpec(config.Machines, rayImage)
+	workerGroupSpecs := CreateWorkerGroupSpecs(config.Machines, rayImage)
+
+	rayCluster := rayv1.RayClusterSpec{
+		RayVersion:       rayVersion,
+		HeadGroupSpec:    headGroupSpec,
+		WorkerGroupSpecs: workerGroupSpecs,
+	}
+	return &rayv1.RayJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              config.Job.Name,
+			Namespace:         config.Namespace,
+			CreationTimestamp: metav1.Time{Time: time.Now()},
+		},
+		Spec: rayv1.RayJobSpec{
+			Entrypoint:     config.Job.Cmd,
+			RayClusterSpec: &rayCluster,
 		},
 	}
 }
@@ -299,8 +365,8 @@ const (
 )
 
 type ClusterConfig struct {
-	ClusterType ClusterType `json:"clusterType"`
-	ClusterName string      `json:"clusterName"`
+	ClusterType ClusterType `json:"clusterType,omitempty"`
+	ClusterName string      `json:"clusterName,omitempty"`
 	Namespace   string      `json:"namespace"`
 	// Ray-specific fields
 	RayVersion string `json:"rayVersion,omitempty"`
@@ -309,6 +375,14 @@ type ClusterConfig struct {
 	VolcanoWorkerQueue string `json:"workerQueue,omitempty"` // Volcano 特有的字段
 
 	Machines []MachineConfig `json:"machines"`
+	// 可选的 Job 配置
+	Job *JobConfig `json:"job,omitempty"`
+}
+
+type JobConfig struct {
+	Name          string `json:"name"`                    // Job 名称
+	Cmd           string `json:"cmd"`                     // Job 执行的命令
+	TargetCluster string `json:"targetCluster,omitempty"` // 目标集群（可选）
 }
 
 type MachineType string
