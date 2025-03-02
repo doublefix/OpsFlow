@@ -10,7 +10,7 @@ spec:
       metadata: {}
       spec:
         containers:
-        - image: rayproject/ray:2.41.0-vllm
+        - image: rayproject/ray:2.43.0-vllm_0.7.3
           name: ray-head
           ports:
           - containerPort: 6379
@@ -52,7 +52,7 @@ spec:
       metadata: {}
       spec:
         containers:
-        - image: rayproject/ray:2.41.0-vllm
+        - image: rayproject/ray:2.43.0-vllm_0.7.3
           name: ray-worker
           resources:
             limits:
