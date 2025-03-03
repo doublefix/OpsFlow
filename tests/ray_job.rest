@@ -6,7 +6,7 @@ Content-Type: application/json
     "name": "deepseek-r1-671b",
     "cmd": "python /home/ray/runcode/vllm_deepseek_r1_671b.py"
   },
-  "namespace": "idp-kuberay",
+  "namespace": "kuberay",
   "machines": [
     {
       "machineType": "single",

@@ -3,7 +3,7 @@ apiVersion: ray.io/v1
 kind: RayJob
 metadata:
   name: deepseek-r1-671b
-  namespace: idp-kuberay
+  namespace: kuberay
 spec:
   entrypoint: python /home/ray/runcode/vllm_deepseek_r1_671b.py
   rayClusterSpec:

@@ -5,7 +5,7 @@ curl -X POST http://10.96.40.83:8080/api/v1/raycluster \
     "clusterName": "raycluster-kuberay",
     "rayVersion":"2.41.0",
     "rayImage":"rayproject/ray:2.41.0-vllm",
-    "namespace": "idp-kuberay",
+    "namespace": "kuberay",
     "machines": [
       {
         "machineType": "single",
@@ -69,7 +69,7 @@ curl -X POST http://10.96.98.178:8080/api/v1/rayjob \
     "name": "deepseek-r1-671b",
     "cmd": "python /home/ray/runcode/vllm_deepseek_r1_671b.py"
   },
-  "namespace": "idp-kuberay",
+  "namespace": "kuberay",
   "rayVersion":"2.43.0",
   "rayImage":"rayproject/ray:2.43.0-vllm_0.7.3",
   "machines": [

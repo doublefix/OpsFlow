@@ -3,7 +3,7 @@ apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
   name: raycluster-kuberay
-  namespace: idp-kuberay
+  namespace: kuberay
 spec:
   headGroupSpec:
     rayStartParams: {}

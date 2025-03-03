@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: deepseek-r1-671b-raycluster-target-svc
-  namespace: idp-kuberay
+  namespace: kuberay
   labels:
     app.kubernetes.io/created-by: kuberay-operator
     app.kubernetes.io/name: kuberay
