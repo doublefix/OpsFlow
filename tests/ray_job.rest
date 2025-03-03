@@ -4,7 +4,7 @@ Content-Type: application/json
 {
   "job": {
     "name": "deepseek-r1-671b",
-    "cmd": "vllm serve /mnt/data/models/DeepSeek-R1   --tensor-parallel-size 8    --pipeline-parallel-size 6   --swap-space 32   --trust-remote-code"
+    "cmd": "python /home/ray/runcode/vllm_deepseek_r1_671b.py"
   },
   "namespace": "idp-kuberay",
   "machines": [

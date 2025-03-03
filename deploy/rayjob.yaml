@@ -85,7 +85,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ray-job-code-sample
+  name: runcode-deepseek-r1-671b
 data:
   vllm_deepseek_r1_671b.py: |
     import ray
