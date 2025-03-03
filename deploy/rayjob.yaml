@@ -1,3 +1,4 @@
+# 使用rayjob直接运行deepseek
 apiVersion: ray.io/v1
 kind: RayJob
 metadata:

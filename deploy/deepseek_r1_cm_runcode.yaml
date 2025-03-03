@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: runcode-deepseek-r1-671b
+data:
+  vllm_deepseek_r1_671b.py: |
+    import ray
+    import subprocess
+
+    @ray.remote
+    def start_deepseek_vllm():
+        command = [
+            "vllm",
+            "serve",
+            "/mnt/data/models/DeepSeek-R1",
+            "--tensor-parallel-size",
+            "8",
+            "--pipeline-parallel-size",
+            "6",
+            "--swap-space",
+            "32",
+            "--trust-remote-code",
+        ]
+        process = subprocess.Popen(command)
+        process.wait()
+
+    if __name__ == "__main__":
+        ray.init()
+        ray.get(start_deepseek_vllm.remote())

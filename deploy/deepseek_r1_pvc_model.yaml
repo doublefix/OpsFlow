@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-model-deepseek-r1-671b
+  labels:
+    app: model-deepseek-r1-671b
+spec:
+  capacity:
+    storage: 700Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 10.32.0.160
+    path: /mnt/data/models/deepseek-ai_DeepSeek-R1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-model-deepseek-r1-671b
+  namespace: idp-kuberay
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 700Gi
+  selector:
+    matchLabels:
+      app: model-deepseek-r1-671b
