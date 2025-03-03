@@ -21,6 +21,19 @@ Content-Type: application/json
           "name": "volume-deepseek-r1",
           "source": "nfs-pvc-model-deepseek-r1-671b",
           "path": "/mnt/data/models/DeepSeek-R1"
+        },
+        {
+          "name": "volume-runcode-deepseek-r1-671b",
+          "path": "/home/ray/runcode",
+          "configMap": {
+            "name": "runcode-deepseek-r1-671b",
+            "items": [
+              {
+                "key": "vllm_deepseek_r1_671b.py",
+                "path": "vllm_deepseek_r1_671b.py"
+              }
+            ]
+          }
         }
       ],
       "ports": [

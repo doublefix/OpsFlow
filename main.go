@@ -212,18 +212,52 @@ func CreateHeadGroupSpec(machines []MachineConfig, rayImage string) rayv1.HeadGr
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 	for _, volume := range headMachine.Volumes {
-		volumes = append(volumes, corev1.Volume{
-			Name: volume.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: volume.Source,
+		// 挂载 PVC
+		if volume.Source != nil {
+			volumes = append(volumes, corev1.Volume{
+				Name: volume.Name,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: *volume.Source,
+					},
 				},
-			},
-		})
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      volume.Name,
-			MountPath: volume.Path,
-		})
+			})
+
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: *volume.Path,
+			})
+		}
+
+		// 挂载 ConfigMap
+		if volume.ConfigMap != nil {
+			volumes = append(volumes, corev1.Volume{
+				Name: volume.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: volume.ConfigMap.Name,
+						},
+						Items: func() []corev1.KeyToPath {
+							var items []corev1.KeyToPath
+							for _, item := range volume.ConfigMap.Items {
+								items = append(items, corev1.KeyToPath{
+									Key:  item.Key,
+									Path: item.Path,
+								})
+							}
+							return items
+						}(),
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: *volume.Path,
+				ReadOnly:  true,
+			})
+		}
+
 	}
 	return rayv1.HeadGroupSpec{
 		RayStartParams: map[string]string{},
@@ -295,18 +329,52 @@ func CreateWorkerGroupSpecs(machines []MachineConfig, rayImage string) []rayv1.W
 			var volumes []corev1.Volume
 			var volumeMounts []corev1.VolumeMount
 			for _, volume := range machine.Volumes {
-				volumes = append(volumes, corev1.Volume{
-					Name: volume.Name,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: volume.Source,
+				// 挂载 PVC
+				if volume.Source != nil {
+					volumes = append(volumes, corev1.Volume{
+						Name: volume.Name,
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: *volume.Source,
+							},
 						},
-					},
-				})
-				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:      volume.Name,
-					MountPath: volume.Path,
-				})
+					})
+
+					volumeMounts = append(volumeMounts, corev1.VolumeMount{
+						Name:      volume.Name,
+						MountPath: *volume.Path,
+					})
+				}
+
+				// 挂载 ConfigMap
+				if volume.ConfigMap != nil {
+					volumes = append(volumes, corev1.Volume{
+						Name: volume.Name,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: volume.ConfigMap.Name,
+								},
+								Items: func() []corev1.KeyToPath {
+									var items []corev1.KeyToPath
+									for _, item := range volume.ConfigMap.Items {
+										items = append(items, corev1.KeyToPath{
+											Key:  item.Key,
+											Path: item.Path,
+										})
+									}
+									return items
+								}(),
+							},
+						},
+					})
+
+					volumeMounts = append(volumeMounts, corev1.VolumeMount{
+						Name:      volume.Name,
+						MountPath: *volume.Path,
+						ReadOnly:  true,
+					})
+				}
 			}
 
 			// 创建 WorkerGroupSpec
@@ -412,9 +480,20 @@ type MachineConfig struct {
 }
 
 type VolumeConfig struct {
-	Name   string `json:"name"`   // 卷的名字
-	Source string `json:"source"` // 卷的源路径
-	Path   string `json:"path"`   // 卷挂载路径
+	Name      string           `json:"name"`                // 挂载名字
+	Source    *string          `json:"source,omitempty"`    // pvc卷的源路径
+	Path      *string          `json:"path,omitempty"`      // pvc卷挂载路径
+	ConfigMap *ConfigMapVolume `json:"configMap,omitempty"` // 挂载 configMap
+}
+
+type ConfigMapVolume struct {
+	Name  string          `jsdon:"name"` // ConfigMap 名称，必须提前存在
+	Items []KeyToPathItem `json:"items"` // 配置项映射
+}
+
+type KeyToPathItem struct {
+	Key  string `json:"key"`  // ConfigMap 中的键
+	Path string `json:"path"` // 挂载到容器的路径
 }
 
 type PortConfig struct {

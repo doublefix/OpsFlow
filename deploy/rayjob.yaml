@@ -4,7 +4,7 @@ metadata:
   name: deepseek-r1-671b
   namespace: idp-kuberay
 spec:
-  entrypoint: python /home/ray/samples/start_vllm_server.py
+  entrypoint: python /home/ray/runcode/vllm_deepseek_r1_671b.py
   rayClusterSpec:
     headGroupSpec:
       rayStartParams: {}
@@ -36,19 +36,19 @@ spec:
             volumeMounts:
             - mountPath: /mnt/data/models/DeepSeek-R1
               name: volume-deepseek-r1
-            - mountPath: /home/ray/samples
-              name: code-sample
+            - mountPath: /home/ray/runcode
+              name: volume-runcode-deepseek-r1-671b
           runtimeClassName: nvidia
           volumes:
           - name: volume-deepseek-r1
             persistentVolumeClaim:
               claimName: nfs-pvc-model-deepseek-r1-671b
-          - name: code-sample
+          - name: volume-runcode-deepseek-r1-671b
             configMap:
-              name: ray-job-code-sample
+              name: runcode-deepseek-r1-671b
               items:
-                - key: start_vllm_server.py
-                  path: start_vllm_server.py
+                - key: vllm_deepseek_r1_671b.py
+                  path: vllm_deepseek_r1_671b.py
     rayVersion: 2.43.0
     workerGroupSpecs:
     - groupName: workergroup
@@ -87,7 +87,7 @@ kind: ConfigMap
 metadata:
   name: ray-job-code-sample
 data:
-  start_vllm_server.py: |
+  vllm_deepseek_r1_671b.py: |
     import ray
     import subprocess
 
