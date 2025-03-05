@@ -84,11 +84,13 @@ curl -X POST http://10.96.98.178:8080/api/v1/rayjob \
       "volumes": [
         {
           "name": "volume-deepseek-r1",
+          "label": "model",
           "source": "nfs-pvc-model-deepseek-r1-671b",
           "path": "/mnt/data/models/DeepSeek-R1"
         },
         {
           "name": "volume-runcode-deepseek-r1-671b",
+          "label": "model",
           "path": "/home/ray/runcode",
           "configMap": {
             "name": "runcode-deepseek-r1-671b",

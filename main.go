@@ -448,8 +448,9 @@ type ClusterConfig struct {
 }
 
 type JobConfig struct {
+	Kind          string `json:"kind"`                    // 任务种类, vllmOnRayAutoJob(自动构建code与模型地址)
 	Name          string `json:"name"`                    // Job 名称
-	Cmd           string `json:"cmd"`                     // Job 执行的命令
+	Cmd           string `json:"cmd,omitempty"`           // Job 执行的命令
 	TargetCluster string `json:"targetCluster,omitempty"` // 目标集群（可选）
 }
 
@@ -480,10 +481,11 @@ type MachineConfig struct {
 }
 
 type VolumeConfig struct {
-	Name      string           `json:"name"`                // 挂载名字
-	Source    *string          `json:"source,omitempty"`    // pvc卷的源路径
-	Path      *string          `json:"path,omitempty"`      // pvc卷挂载路径
-	ConfigMap *ConfigMapVolume `json:"configMap,omitempty"` // 挂载 configMap
+	Name      string              `json:"name"`                // 挂载名字
+	Label     map[string]struct{} `json:"label,omitempty"`     // 挂载标签(比如model挂载代表模型，runcode代表运行代码)
+	Source    *string             `json:"source,omitempty"`    // pvc卷
+	Path      *string             `json:"path,omitempty"`      // pvc在pod的卷挂载路径
+	ConfigMap *ConfigMapVolume    `json:"configMap,omitempty"` // 挂载 configMap
 }
 
 type ConfigMapVolume struct {
