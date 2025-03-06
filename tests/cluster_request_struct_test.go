@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/modcoco/OpsFlow/internal"
+	"github.com/modcoco/OpsFlow/pkg/utils"
 )
 
 func TestGenerateUserRequest(t *testing.T) {
@@ -35,7 +35,7 @@ func TestGenerateUserRequest(t *testing.T) {
 			},
 		},
 	}
-	internal.MarshalToJSON(rayConfig)
+	utils.MarshalToJSON(rayConfig)
 
 	// Volcano 集群示例
 	volcanoConfig := ClusterConfig{
@@ -66,7 +66,7 @@ func TestGenerateUserRequest(t *testing.T) {
 			},
 		},
 	}
-	internal.MarshalToJSON(volcanoConfig)
+	utils.MarshalToJSON(volcanoConfig)
 }
 
 type ClusterType string
