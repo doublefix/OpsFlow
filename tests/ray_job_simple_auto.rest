@@ -1,0 +1,69 @@
+POST http://localhost:8080/api/v1/rayjob
+Content-Type: application/json
+
+{
+  "job": {
+    "kind": "vllmOnRaySimpleAutoJob",
+    "name": "deepseek-r1-671b"
+  },
+  "namespace": "kuberay",
+  "machines": [
+    {
+      "machineType": "single",
+      "name": "ray-head",
+      "cpu": "32",
+      "memory": "512Gi",
+      "customResources": {
+        "nvidia.com/gpu": "10"
+      },
+      "volumes": [
+        {
+          "name": "volume-deepseek-r1",
+          "label": {
+            "model": "true"
+          },
+          "mountPath": "/mnt/data/models/DeepSeek-R1",
+          "source": {
+            "pvc": {
+              "claimName": "nfs-pvc-model-deepseek-r1-671b"
+            }
+          }
+        }
+      ],
+      "ports": [
+        {
+          "name": "dashboard",
+          "containerPort": 8265
+        }
+      ],
+      "isHeadNode": true
+    },
+    {
+      "machineType": "group",
+      "name": "ray-worker",
+      "cpu": "32",
+      "memory": "512Gi",
+      "customResources": {
+        "nvidia.com/gpu": "10"
+      },
+      "volumes": [
+        {
+          "name": "volume-deepseek-r1",
+          "label": {
+            "model": "true"
+          },
+          "mountPath": "/mnt/data/models/DeepSeek-R1",
+          "source": {
+            "pvc": {
+              "claimName": "nfs-pvc-model-deepseek-r1-671b"
+            }
+          }
+        }
+      ],
+      "groupName": "workergroup",
+      "replicas": 3,
+      "minReplicas": 3,
+      "maxReplicas": 3
+    }
+  ]
+}

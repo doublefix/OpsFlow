@@ -34,14 +34,14 @@ func CreateRayJobHandle(c *gin.Context) {
 
 	rayJob := job.CreateRayJob(clusterConfig)
 	utils.MarshalToJSON(rayJob)
-	res, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Create(appCtx.Ctx(), rayJob, metav1.CreateOptions{})
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	fmt.Println(res.Name)
+	// res, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Create(appCtx.Ctx(), rayJob, metav1.CreateOptions{})
+	// if err != nil {
+	// 	c.JSON(500, gin.H{"error": err.Error()})
+	// 	return
+	// }
+	// fmt.Println(res.Name)
 
 	c.JSON(200, gin.H{
-		"message": fmt.Sprintf("Ray Cluster %s is created", res.Name),
+		"message": fmt.Sprintf("Ray Cluster %s is created", "res.Name"),
 	})
 }

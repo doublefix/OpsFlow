@@ -42,7 +42,7 @@ type MachineConfig struct {
 	CPU             string            `json:"cpu"`                       // CPU 资源
 	Memory          string            `json:"memory"`                    // 内存资源
 	CustomResources map[string]string `json:"customResources,omitempty"` // 自定义资源（如 GPU）
-	Ports           []PortConfig      `json:"ports"`                     // 端口配置
+	Ports           []PortConfig      `json:"ports,omitempty"`           // 端口配置
 	IsHeadNode      bool              `json:"isHeadNode,omitempty"`      // 是否为头节点
 
 	// 以下字段仅在 MachineType 为 group 时有效
@@ -56,19 +56,30 @@ type MachineConfig struct {
 }
 
 type VolumeConfig struct {
-	Name      string            `json:"name"`                // 挂载名字
-	Type      string            `json:"type"`                // 挂载种类
-	Label     map[string]string `json:"label,omitempty"`     // 挂载标签(比如model挂载代表模型，runcode代表运行代码)
-	Source    *string           `json:"source,omitempty"`    // pvc卷
-	Path      *string           `json:"path,omitempty"`      // pvc在pod的卷挂载路径
-	ConfigMap *ConfigMapVolume  `json:"configMap,omitempty"` // 挂载 configMap
+	Name      string            `json:"name"`            // 卷名称
+	Label     map[string]string `json:"label,omitempty"` // 挂载标签(比如model挂载代表模型，runcode代表运行代码)
+	MountPath string            `json:"mountPath"`       // 挂载路径
+	Source    VolumeSource      `json:"source"`          // 卷来源
 }
 
-type ConfigMapVolume struct {
-	Name  string          `jsdon:"name"` // ConfigMap 名称，必须提前存在
+// VolumeSource 定义了 PVC 或 ConfigMap 作为卷的来源
+type VolumeSource struct {
+	PVC       *PVCSource       `json:"pvc,omitempty"`       // 持久化存储卷
+	ConfigMap *ConfigMapSource `json:"configMap,omitempty"` // ConfigMap 作为存储卷
+}
+
+// PVCSource 表示 PVC 相关信息
+type PVCSource struct {
+	ClaimName string `json:"claimName"` // PVC 名称
+}
+
+// ConfigMapSource 表示 ConfigMap 相关信息
+type ConfigMapSource struct {
+	Name  string          `json:"name"`  // ConfigMap 名称
 	Items []KeyToPathItem `json:"items"` // 配置项映射
 }
 
+// KeyToPathItem 表示 ConfigMap 的键值到路径的映射
 type KeyToPathItem struct {
 	Key  string `json:"key"`  // ConfigMap 中的键
 	Path string `json:"path"` // 挂载到容器的路径

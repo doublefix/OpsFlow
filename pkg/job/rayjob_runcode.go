@@ -71,18 +71,17 @@ if __name__ == "__main__":
 `, input.ModelPath, strconv.Itoa(input.TensorParallelSize), strconv.Itoa(input.PipelineParallelSize))
 
 	runCodeFilePath := "/home/ray/.runcode/" + scriptName
-	configMap := model.ConfigMapVolume{
-		Name: configMapName,
-		Items: []model.KeyToPathItem{
-			{Key: scriptName, Path: runCodeFilePath},
-		},
-	}
-
 	volumeConfig := model.VolumeConfig{
 		Name:      "volume-" + configMapName,
-		Type:      "configMap",
-		Label:     map[string]string{"runcode": "true"},
-		ConfigMap: &configMap,
+		MountPath: runCodeFilePath,
+		Source: model.VolumeSource{
+			ConfigMap: &model.ConfigMapSource{
+				Name: configMapName,
+				Items: []model.KeyToPathItem{
+					{Key: scriptName, Path: scriptName},
+				},
+			},
+		},
 	}
 
 	return &VllmSimpleRunCodeConfigForRayCluster{

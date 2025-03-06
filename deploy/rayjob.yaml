@@ -1,11 +1,10 @@
-# 使用rayjob直接运行deepseek
 apiVersion: ray.io/v1
 kind: RayJob
 metadata:
   name: deepseek-r1-671b
   namespace: kuberay
 spec:
-  entrypoint: python /home/ray/runcode/vllm_deepseek_r1_671b.py
+  entrypoint: python /home/ray/samples/start_vllm_server.py
   rayClusterSpec:
     headGroupSpec:
       rayStartParams: {}
@@ -37,19 +36,19 @@ spec:
             volumeMounts:
             - mountPath: /mnt/data/models/DeepSeek-R1
               name: volume-deepseek-r1
-            - mountPath: /home/ray/runcode
-              name: volume-runcode-deepseek-r1-671b
-          runtimeClassName: nvidia
+            - mountPath: /home/ray/samples
+              name: code-sample
           volumes:
           - name: volume-deepseek-r1
             persistentVolumeClaim:
               claimName: nfs-pvc-model-deepseek-r1-671b
-          - name: volume-runcode-deepseek-r1-671b
+          - name: code-sample
             configMap:
-              name: runcode-deepseek-r1-671b
+              name: ray-job-code-sample
               items:
-                - key: vllm_deepseek_r1_671b.py
-                  path: vllm_deepseek_r1_671b.py
+                - key: start_vllm_server.py
+                  path: start_vllm_server.py
+          runtimeClassName: nvidia
     rayVersion: 2.43.0
     workerGroupSpecs:
     - groupName: workergroup
@@ -86,9 +85,9 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: runcode-deepseek-r1-671b
+  name: ray-job-code-sample
 data:
-  vllm_deepseek_r1_671b.py: |
+  start_vllm_server.py: |
     import ray
     import subprocess
 
@@ -105,6 +104,10 @@ data:
             "--swap-space",
             "32",
             "--trust-remote-code",
+            "--api-key",
+            "sk-2efff0e889864bada216de078e41c0a5",
+            "--dtype",
+            "auto"
         ]
         process = subprocess.Popen(command)
         process.wait()

@@ -75,56 +75,7 @@ func CreateHeadGroupSpec(machines []model.MachineConfig, rayImage string) rayv1.
 	}
 
 	// Create volumes and volume mounts from the machine config
-	var volumes []corev1.Volume
-	var volumeMounts []corev1.VolumeMount
-	for _, volume := range headMachine.Volumes {
-		// 挂载 PVC
-		if volume.Source != nil {
-			volumes = append(volumes, corev1.Volume{
-				Name: volume.Name,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: *volume.Source,
-					},
-				},
-			})
-
-			volumeMounts = append(volumeMounts, corev1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: *volume.Path,
-			})
-		}
-
-		// 挂载 ConfigMap
-		if volume.ConfigMap != nil {
-			volumes = append(volumes, corev1.Volume{
-				Name: volume.Name,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: volume.ConfigMap.Name,
-						},
-						Items: func() []corev1.KeyToPath {
-							var items []corev1.KeyToPath
-							for _, item := range volume.ConfigMap.Items {
-								items = append(items, corev1.KeyToPath{
-									Key:  item.Key,
-									Path: item.Path,
-								})
-							}
-							return items
-						}(),
-					},
-				},
-			})
-			volumeMounts = append(volumeMounts, corev1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: *volume.Path,
-				ReadOnly:  true,
-			})
-		}
-
-	}
+	volumes, volumeMounts := BuildVolumesAndMounts(headMachine.Volumes)
 	return rayv1.HeadGroupSpec{
 		RayStartParams: map[string]string{},
 		Template: corev1.PodTemplateSpec{
@@ -192,56 +143,7 @@ func CreateWorkerGroupSpecs(machines []model.MachineConfig, rayImage string) []r
 			}
 
 			// 创建 volumes 和 volume mounts
-			var volumes []corev1.Volume
-			var volumeMounts []corev1.VolumeMount
-			for _, volume := range machine.Volumes {
-				// 挂载 PVC
-				if volume.Source != nil {
-					volumes = append(volumes, corev1.Volume{
-						Name: volume.Name,
-						VolumeSource: corev1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: *volume.Source,
-							},
-						},
-					})
-
-					volumeMounts = append(volumeMounts, corev1.VolumeMount{
-						Name:      volume.Name,
-						MountPath: *volume.Path,
-					})
-				}
-
-				// 挂载 ConfigMap
-				if volume.ConfigMap != nil {
-					volumes = append(volumes, corev1.Volume{
-						Name: volume.Name,
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: volume.ConfigMap.Name,
-								},
-								Items: func() []corev1.KeyToPath {
-									var items []corev1.KeyToPath
-									for _, item := range volume.ConfigMap.Items {
-										items = append(items, corev1.KeyToPath{
-											Key:  item.Key,
-											Path: item.Path,
-										})
-									}
-									return items
-								}(),
-							},
-						},
-					})
-
-					volumeMounts = append(volumeMounts, corev1.VolumeMount{
-						Name:      volume.Name,
-						MountPath: *volume.Path,
-						ReadOnly:  true,
-					})
-				}
-			}
+			volumes, volumeMounts := BuildVolumesAndMounts(machine.Volumes)
 
 			// 创建 WorkerGroupSpec
 			workerGroupSpec := rayv1.WorkerGroupSpec{
@@ -277,4 +179,60 @@ func CreateWorkerGroupSpecs(machines []model.MachineConfig, rayImage string) []r
 	}
 
 	return workerGroupSpecs
+}
+
+func BuildVolumesAndMounts(volumesConfig []model.VolumeConfig) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+
+	for _, volume := range volumesConfig {
+		// 挂载 PVC
+		if volume.Source.PVC != nil {
+			volumes = append(volumes, corev1.Volume{
+				Name: volume.Name,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.Source.PVC.ClaimName,
+					},
+				},
+			})
+
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: volume.MountPath,
+			})
+		}
+
+		// 挂载 ConfigMap
+		if volume.Source.ConfigMap != nil {
+			volumes = append(volumes, corev1.Volume{
+				Name: volume.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: volume.Source.ConfigMap.Name,
+						},
+						Items: func() []corev1.KeyToPath {
+							var items []corev1.KeyToPath
+							for _, item := range volume.Source.ConfigMap.Items {
+								items = append(items, corev1.KeyToPath{
+									Key:  item.Key,
+									Path: item.Path,
+								})
+							}
+							return items
+						}(),
+					},
+				},
+			})
+
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: volume.MountPath,
+				ReadOnly:  true,
+			})
+		}
+	}
+
+	return volumes, volumeMounts
 }

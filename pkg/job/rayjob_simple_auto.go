@@ -38,10 +38,10 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	// Get header machine modelPath
 	for _, volume := range headerMachine.Volumes {
 		if _, exists := volume.Label["model"]; exists {
-			if volume.Path == nil || *volume.Path == "" {
+			if volume.MountPath == "" {
 				return fmt.Errorf("no model Volum, or path is none")
 			}
-			modelPath = *volume.Path
+			modelPath = volume.MountPath
 			break
 		}
 	}
@@ -78,12 +78,16 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 			break
 		}
 	}
-	if targetHeaderMachine == nil && len(clusterConfig.Machines) > 0 {
+	if targetHeaderMachine == nil {
 		targetHeaderMachine = &clusterConfig.Machines[0]
 	}
-	if targetHeaderMachine != nil {
-		targetHeaderMachine.Volumes = append(targetHeaderMachine.Volumes, vllmCodeConfigMap.VolumeConfig)
+	if targetHeaderMachine == nil {
+		return fmt.Errorf("no machine available to add volume")
 	}
+	if vllmCodeConfigMap == nil {
+		return fmt.Errorf("vllmCodeConfigMap is nil")
+	}
+	targetHeaderMachine.Volumes = append(targetHeaderMachine.Volumes, vllmCodeConfigMap.VolumeConfig)
 
 	// Add run cmd
 	clusterConfig.Job.Cmd = "python " + vllmCodeConfigMap.RunCodeFilePath

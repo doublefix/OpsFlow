@@ -11,7 +11,7 @@ import (
 
 func TestVllmOnRayAutoJob(t *testing.T) {
 	// 示例 ClusterConfig
-	var replicas int32 = 7
+	var replicas int32 = 3
 	clusterConfig := model.ClusterConfig{
 		ClusterType: "ray",
 		ClusterName: "test-cluster",
@@ -31,11 +31,10 @@ func TestVllmOnRayAutoJob(t *testing.T) {
 				Volumes: []model.VolumeConfig{
 					{
 						Name: "model-volume",
-						Type: "pvc",
 						Label: map[string]string{
 							"model": "true",
 						},
-						Path: utils.StrPtr("/mnt/data/models/DeepSeek-R1"),
+						MountPath: "/mnt/data/models/DeepSeek-R1",
 					},
 				},
 			},
@@ -48,11 +47,10 @@ func TestVllmOnRayAutoJob(t *testing.T) {
 				Volumes: []model.VolumeConfig{
 					{
 						Name: "model-volume",
-						Type: "pvc",
 						Label: map[string]string{
 							"model": "true",
 						},
-						Path: utils.StrPtr("/mnt/data/models/DeepSeek-R1"),
+						MountPath: "/mnt/data/models/DeepSeek-R1",
 					},
 				},
 				Replicas: &replicas,
