@@ -42,6 +42,6 @@ func CreateRayJobHandle(c *gin.Context) {
 	// fmt.Println(res.Name)
 
 	c.JSON(200, gin.H{
-		"message": fmt.Sprintf("Ray Cluster %s is created", "res.Name"),
+		"message": fmt.Sprintf("Ray Cluster %s is created", "TEST"),
 	})
 }
