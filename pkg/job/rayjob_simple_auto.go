@@ -90,7 +90,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	targetHeaderMachine.Volumes = append(targetHeaderMachine.Volumes, vllmCodeConfigMap.VolumeConfig)
 
 	// Add run cmd
-	clusterConfig.Job.Cmd = "python " + vllmCodeConfigMap.RunCodeFilePath
+	clusterConfig.Job.Cmd = "python " + vllmCodeConfigMap.RunCodeFilePathAndScriptName
 
 	fmt.Println(vllmCodeConfigMap.RunCode)
 	return nil

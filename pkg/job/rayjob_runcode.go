@@ -19,10 +19,12 @@ type VllmSimpleAutoJobScriptParams struct {
 }
 
 type VllmSimpleRunCodeConfigForRayCluster struct {
-	ConfigMapName   string
-	VolumeConfig    model.VolumeConfig
-	RunCodeFilePath string
-	RunCode         string
+	ConfigMapName                string
+	VolumeConfig                 model.VolumeConfig
+	RunCodeFilePath              string
+	RunCodeFilePathAndScriptName string
+	ScriptName                   string
+	RunCode                      string
 }
 
 func GetVllmOnRaySimpleAutoJobConfigMap(input VllmSimpleAutoJobScriptParams) (*VllmSimpleRunCodeConfigForRayCluster, error) {
@@ -70,7 +72,8 @@ if __name__ == "__main__":
     ray.get(start_vllm.remote())
 `, input.ModelPath, strconv.Itoa(input.TensorParallelSize), strconv.Itoa(input.PipelineParallelSize))
 
-	runCodeFilePath := "/home/ray/.runcode/" + scriptName
+	runCodeFilePath := "/home/ray/.runcode"
+	runCodeFilePathAndScriptName := runCodeFilePath + "/" + scriptName
 	volumeConfig := model.VolumeConfig{
 		Name:      "volume-" + configMapName,
 		MountPath: runCodeFilePath,
@@ -85,9 +88,11 @@ if __name__ == "__main__":
 	}
 
 	return &VllmSimpleRunCodeConfigForRayCluster{
-		ConfigMapName:   configMapName,
-		RunCode:         runCode,
-		RunCodeFilePath: runCodeFilePath,
-		VolumeConfig:    volumeConfig,
+		ConfigMapName:                configMapName,
+		RunCode:                      runCode,
+		RunCodeFilePath:              runCodeFilePath,
+		RunCodeFilePathAndScriptName: runCodeFilePathAndScriptName,
+		ScriptName:                   scriptName,
+		VolumeConfig:                 volumeConfig,
 	}, nil
 }
