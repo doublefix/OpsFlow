@@ -20,7 +20,8 @@ Content-Type: application/json
         {
           "name": "volume-deepseek-r1",
           "label": {
-            "model": "true"
+            "model": "true",
+            "actualModelPathInPod": "/mnt/data/models/test/DeepSeek-R1"
           },
           "mountPath": "/mnt/data/models/DeepSeek-R1",
           "source": {

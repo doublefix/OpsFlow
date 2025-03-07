@@ -38,10 +38,13 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	// Get header machine modelPath
 	for _, volume := range headerMachine.Volumes {
 		if _, exists := volume.Label["model"]; exists {
-			if volume.MountPath == "" {
-				return fmt.Errorf("no model Volum, or path is none")
+			if path, ok := volume.Label["actualModelPathInPod"]; ok {
+				modelPath = path
+			} else if volume.MountPath != "" {
+				modelPath = volume.MountPath
+			} else {
+				return fmt.Errorf("no model volume, or path is none")
 			}
-			modelPath = volume.MountPath
 			break
 		}
 	}
