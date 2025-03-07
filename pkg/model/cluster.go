@@ -37,13 +37,13 @@ const (
 )
 
 type MachineConfig struct {
-	Name            string            `json:"name"`                      // 机器名称
-	MachineType     MachineType       `json:"machineType"`               // 机器种类：single 或 group
-	CPU             string            `json:"cpu"`                       // CPU 资源
-	Memory          string            `json:"memory"`                    // 内存资源
-	CustomResources map[string]string `json:"customResources,omitempty"` // 自定义资源（如 GPU）
-	Ports           []PortConfig      `json:"ports,omitempty"`           // 端口配置
-	IsHeadNode      bool              `json:"isHeadNode,omitempty"`      // 是否为头节点
+	Name            string                    `json:"name"`                      // 机器名称
+	MachineType     MachineType               `json:"machineType"`               // 机器种类：single 或 group
+	CPU             string                    `json:"cpu"`                       // CPU 资源
+	Memory          string                    `json:"memory"`                    // 内存资源
+	CustomResources map[string]CustomResource `json:"customResources,omitempty"` // 自定义资源（如 GPU）
+	Ports           []PortConfig              `json:"ports,omitempty"`           // 端口配置
+	IsHeadNode      bool                      `json:"isHeadNode,omitempty"`      // 是否为头节点
 
 	// 以下字段仅在 MachineType 为 group 时有效
 	GroupName   string `json:"groupName,omitempty"`   // 机器组名称
@@ -53,6 +53,11 @@ type MachineConfig struct {
 
 	// 以下字段用来挂载卷
 	Volumes []VolumeConfig `json:"volumes,omitempty"` // 卷挂载配置
+}
+
+type CustomResource struct {
+	Quantity string            `json:"quantity"` // 资源类型，如 GPU、TPU、RDMA 等
+	Labels   map[string]string `json:"labels"`   // 资源标签
 }
 
 type VolumeConfig struct {

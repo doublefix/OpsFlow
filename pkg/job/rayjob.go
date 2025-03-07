@@ -68,7 +68,7 @@ func CreateHeadGroupSpec(machines []model.MachineConfig, rayImage string) rayv1.
 	}
 	var runtimeClassName *string
 	for key, value := range headMachine.CustomResources {
-		resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
+		resourceList[corev1.ResourceName(key)] = resource.MustParse(value.Quantity)
 		if strings.HasPrefix(key, "nvidia.com") {
 			runtimeClassName = ptr.To("nvidia")
 		}
@@ -118,7 +118,7 @@ func CreateWorkerGroupSpecs(machines []model.MachineConfig, rayImage string) []r
 			}
 			var runtimeClassName *string
 			for key, value := range machine.CustomResources {
-				resourceList[corev1.ResourceName(key)] = resource.MustParse(value)
+				resourceList[corev1.ResourceName(key)] = resource.MustParse(value.Quantity)
 				if strings.HasPrefix(key, "nvidia.com") {
 					runtimeClassName = ptr.To("nvidia")
 				}

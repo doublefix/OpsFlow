@@ -14,7 +14,9 @@ Content-Type: application/json
       "cpu": "32",
       "memory": "512Gi",
       "customResources": {
-        "nvidia.com/gpu": "10"
+        "nvidia.com/gpu": {
+          "quantity": "10"
+        }
       },
       "volumes": [
         {
@@ -45,7 +47,9 @@ Content-Type: application/json
       "cpu": "32",
       "memory": "512Gi",
       "customResources": {
-        "nvidia.com/gpu": "10"
+        "nvidia.com/gpu": {
+          "quantity": "10"
+        }
       },
       "volumes": [
         {

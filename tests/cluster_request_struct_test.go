@@ -20,8 +20,10 @@ func TestGenerateUserRequest(t *testing.T) {
 				Name:   "node-1",
 				CPU:    "2",
 				Memory: "4Gi",
-				CustomResources: map[string]string{
-					"GPU": "1", // 用户自定义资源
+				CustomResources: map[string]model.CustomResource{
+					"GPU": model.CustomResource{
+						Quantity: "2",
+					}, // 用户自定义资源
 				},
 				Ports: []model.PortConfig{{Name: "gcs-server", ContainerPort: 6379}},
 			},
@@ -29,8 +31,10 @@ func TestGenerateUserRequest(t *testing.T) {
 				Name:   "node-2",
 				CPU:    "1",
 				Memory: "1Gi",
-				CustomResources: map[string]string{
-					"GPU": "2", // 用户自定义资源
+				CustomResources: map[string]model.CustomResource{
+					"GPU": model.CustomResource{
+						Quantity: "1",
+					}, // 用户自定义资源
 				},
 				Ports: []model.PortConfig{{Name: "gcs-server", ContainerPort: 6379}},
 			},
@@ -49,8 +53,10 @@ func TestGenerateUserRequest(t *testing.T) {
 				Name:   "node-1",
 				CPU:    "4",
 				Memory: "8Gi",
-				CustomResources: map[string]string{
-					"GPU": "2", // 用户自定义资源
+				CustomResources: map[string]model.CustomResource{
+					"GPU": {
+						Quantity: "2",
+					}, // 用户自定义资源
 				},
 				Ports:      []model.PortConfig{{Name: "job-scheduler", ContainerPort: 8080}},
 				IsHeadNode: true,
@@ -59,8 +65,10 @@ func TestGenerateUserRequest(t *testing.T) {
 				Name:   "node-2",
 				CPU:    "2",
 				Memory: "4Gi",
-				CustomResources: map[string]string{
-					"GPU": "1", // 用户自定义资源
+				CustomResources: map[string]model.CustomResource{
+					"GPU": {
+						Quantity: "1",
+					}, // 用户自定义资源
 				},
 				Ports:      []model.PortConfig{{Name: "job-scheduler", ContainerPort: 8080}},
 				IsHeadNode: false,

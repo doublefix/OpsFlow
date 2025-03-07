@@ -22,12 +22,16 @@ func TestVllmOnRayAutoJob(t *testing.T) {
 		},
 		Machines: []model.MachineConfig{
 			{
-				Name:            "node-1",
-				IsHeadNode:      true,
-				MachineType:     model.MachineTypeSingle,
-				CPU:             "8",
-				Memory:          "16Gi",
-				CustomResources: map[string]string{"nvidia.com/gpu": "8"},
+				Name:        "node-1",
+				IsHeadNode:  true,
+				MachineType: model.MachineTypeSingle,
+				CPU:         "8",
+				Memory:      "16Gi",
+				CustomResources: map[string]model.CustomResource{
+					"nvidia.com/gpu": {
+						Quantity: "8",
+					},
+				},
 				Volumes: []model.VolumeConfig{
 					{
 						Name: "model-volume",
@@ -39,11 +43,15 @@ func TestVllmOnRayAutoJob(t *testing.T) {
 				},
 			},
 			{
-				Name:            "node-2",
-				MachineType:     model.MachineTypeSingle,
-				CPU:             "8",
-				Memory:          "16Gi",
-				CustomResources: map[string]string{"nvidia.com/gpu": "8"},
+				Name:        "node-2",
+				MachineType: model.MachineTypeSingle,
+				CPU:         "8",
+				Memory:      "16Gi",
+				CustomResources: map[string]model.CustomResource{
+					"nvidia.com/gpu": {
+						Quantity: "8",
+					},
+				},
 				Volumes: []model.VolumeConfig{
 					{
 						Name: "model-volume",

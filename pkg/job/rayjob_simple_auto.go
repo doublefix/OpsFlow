@@ -51,7 +51,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	// Get header machine nvidia GPU count
 	var countHeaderMaicheNvidiaGPU int
 	if val, exists := headerMachine.CustomResources["nvidia.com/gpu"]; exists {
-		intValue, err := strconv.Atoi(val)
+		intValue, err := strconv.Atoi(val.Quantity)
 		if err != nil {
 			return fmt.Errorf("nvidia GPU value is none")
 		}
