@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/google/uuid"
 	"github.com/modcoco/OpsFlow/pkg/model"
 )
 
@@ -65,4 +66,9 @@ func ConvertPorts(ports []model.PortConfig) []corev1.ContainerPort {
 
 func StrPtr(s string) *string {
 	return &s
+}
+
+func GenerateUniqueStr(name string) string {
+	randomSuffix := uuid.New().String()[:8]
+	return fmt.Sprintf("%s-%s", name, randomSuffix)
 }

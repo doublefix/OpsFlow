@@ -9,6 +9,7 @@ metadata:
     ray.io/cluster: deepseek-r1-671b-raycluster-t4ld9
     ray.io/identifier: deepseek-r1-671b-raycluster-t4ld9-head
 spec:
+  type: ClusterIP
   clusterIP: None
   ports:
   - name: target-port
@@ -22,4 +23,3 @@ spec:
     ray.io/identifier: deepseek-r1-671b-raycluster-t4ld9-head
     ray.io/node-type: head
   publishNotReadyAddresses: true
-  type: ClusterIP

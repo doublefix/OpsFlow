@@ -66,9 +66,12 @@ func TestVllmOnRayAutoJob(t *testing.T) {
 		},
 	}
 
-	err := job.ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(&clusterConfig)
+	config, err := job.ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(&clusterConfig)
 	if err != nil {
 		fmt.Println(err)
+	}
+	if config != nil {
+		fmt.Println(config.RunCode)
 	}
 	utils.MarshalToJSON(clusterConfig)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/modcoco/OpsFlow/pkg/context"
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/job"
 	"github.com/modcoco/OpsFlow/pkg/model"
@@ -32,16 +33,16 @@ func CreateRayJobHandle(c *gin.Context) {
 		return
 	}
 
-	rayJob := job.CreateRayJob(clusterConfig)
-	utils.MarshalToJSON(rayJob)
-	// res, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Create(appCtx.Ctx(), rayJob, metav1.CreateOptions{})
-	// if err != nil {
-	// 	c.JSON(500, gin.H{"error": err.Error()})
-	// 	return
-	// }
-	// fmt.Println(res.Name)
+	rayJobCtx := context.NewRayJobContext(appCtx.Client().Core(), appCtx.Client().Ray(), appCtx.Ctx())
+	createRayJobInfo, err := job.CreateRayJob(clusterConfig, rayJobCtx)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+	}
+	utils.MarshalToJSON(createRayJobInfo)
 
-	c.JSON(200, gin.H{
-		"message": fmt.Sprintf("Ray Cluster %s is created", "TEST"),
-	})
+	response := model.RayJobResponse{
+		Namespace: createRayJobInfo.Namespace,
+		JobID:     createRayJobInfo.JobID,
+	}
+	c.JSON(200, response)
 }

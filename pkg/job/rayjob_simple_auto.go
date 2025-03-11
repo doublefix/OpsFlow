@@ -7,14 +7,15 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/model"
 )
 
-func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *model.ClusterConfig) error {
+// Build runcode config
+func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *model.ClusterConfig) (*VllmSimpleRunCodeConfigForRayCluster, error) {
 	if clusterConfig.Job == nil || clusterConfig.Job.Kind != "vllmOnRaySimpleAutoJob" {
-		return nil
+		return nil, nil
 	}
 	// Get cluster total machine count
 	machineTypeCount := CountMachines(clusterConfig)
 	if machineTypeCount.TotalMachines == 0 {
-		return fmt.Errorf("total machine size is zero")
+		return nil, fmt.Errorf("total machine size is zero")
 	}
 
 	// Get config
@@ -32,7 +33,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 		headerMachine = &clusterConfig.Machines[0]
 	}
 	if headerMachine == nil {
-		return fmt.Errorf("no header machine")
+		return nil, fmt.Errorf("no header machine")
 	}
 
 	// Get header machine modelPath
@@ -43,7 +44,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 			} else if volume.MountPath != "" {
 				modelPath = volume.MountPath
 			} else {
-				return fmt.Errorf("no model volume, or path is none")
+				return nil, fmt.Errorf("no model volume, or path is none")
 			}
 			break
 		}
@@ -53,12 +54,12 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	if val, exists := headerMachine.CustomResources["nvidia.com/gpu"]; exists {
 		intValue, err := strconv.Atoi(val.Quantity)
 		if err != nil {
-			return fmt.Errorf("nvidia GPU value is none")
+			return nil, fmt.Errorf("nvidia GPU value is none")
 		}
 		countHeaderMaicheNvidiaGPU = intValue
 	}
 	if countHeaderMaicheNvidiaGPU == 0 {
-		return fmt.Errorf("no gpu")
+		return nil, fmt.Errorf("no gpu")
 	}
 
 	vllmJobSimple := VllmSimpleAutoJobScriptParams{
@@ -85,10 +86,10 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 		targetHeaderMachine = &clusterConfig.Machines[0]
 	}
 	if targetHeaderMachine == nil {
-		return fmt.Errorf("no machine available to add volume")
+		return nil, fmt.Errorf("no machine available to add volume")
 	}
 	if vllmCodeConfigMap == nil {
-		return fmt.Errorf("vllmCodeConfigMap is nil")
+		return nil, fmt.Errorf("vllmCodeConfigMap is nil")
 	}
 	targetHeaderMachine.Volumes = append(targetHeaderMachine.Volumes, vllmCodeConfigMap.VolumeConfig)
 
@@ -96,7 +97,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	clusterConfig.Job.Cmd = "python " + vllmCodeConfigMap.RunCodeFilePathAndScriptName
 
 	fmt.Println(vllmCodeConfigMap.RunCode)
-	return nil
+	return vllmCodeConfigMap, nil
 }
 
 type MachineTypeCount struct {
