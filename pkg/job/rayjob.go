@@ -1,12 +1,14 @@
 package job
 
 import (
+	"log"
 	"strings"
 	"time"
 
 	"github.com/modcoco/OpsFlow/pkg/common"
 	"github.com/modcoco/OpsFlow/pkg/context"
 	"github.com/modcoco/OpsFlow/pkg/model"
+	"github.com/modcoco/OpsFlow/pkg/svc"
 	"github.com/modcoco/OpsFlow/pkg/utils"
 	rayv1 "github.com/ray-project/kuberay/ray-operator/apis/ray/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +33,7 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 
 	headGroupSpec := CreateHeadGroupSpec(config.Machines, rayImage)
 	workerGroupSpecs := CreateWorkerGroupSpecs(config.Machines, rayImage)
-	uniqueRayJobId := utils.GenerateUniqueStr(config.Job.Name)
+	uniqueRayJobId := config.Job.Name
 
 	rayCluster := rayv1.RayClusterSpec{
 		RayVersion:       rayVersion,
@@ -64,17 +66,37 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 		return model.RayJobResponse{}, err
 	}
 	// Create SVC
-	// go func() {
-	// 	// 从 resultChan 中获取 RayJob 名字，等待 RayJob 完成并获取 RayClusterName
-	// 	rayJobName := <-resultChan
-	// 	rayClusterName, err := waitForRayClusterName(clientset, "idp-kuberay", rayJobName, 30*time.Minute, resultChan)
-	// 	if err != nil {
-	// 		log.Printf("Error waiting for RayClusterName: %v", err)
-	// 		return
-	// 	}
-	// 	// 等待 RayClusterName 完成后再创建 Service
-	// 	createService(clientset, "idp-kuberay", rayClusterName, resultChan)
-	// }()
+	resultChan := make(chan string, 1)
+	watcher := NewRayJobWatcher(RayJobWatcherConfig{
+		Clientset:  c.Ray(),
+		Namespace:  config.Namespace,
+		JobName:    runningRayJob.Name,
+		Timeout:    30 * time.Minute,
+		Context:    c.Ctx(),
+		ResultChan: resultChan,
+	})
+	go watcher.WaitForRayClusterName()
+	go func() {
+		select {
+		case clusterName := <-resultChan:
+			if clusterName == "timeout waiting for RayClusterName" {
+				return
+			}
+
+			service := svc.GenerateRayClusterService(config.Namespace, clusterName)
+			common.AddLabelToService(service, labels)
+			_, err := c.Core().CoreV1().Services(config.Namespace).Create(c.Ctx(), service, metav1.CreateOptions{})
+			if err != nil {
+				log.Printf("Create service error: %v", err)
+				return
+			}
+
+			log.Printf("Service %s create success!", service.Name)
+
+		case <-time.After(35 * time.Minute):
+			log.Println("Wait RayClusterName time out")
+		}
+	}()
 
 	return model.RayJobResponse{
 		JobID:     uniqueRayJobId,
