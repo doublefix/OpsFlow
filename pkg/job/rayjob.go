@@ -1,6 +1,7 @@
 package job
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -59,8 +60,12 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 	if vllmConfig != nil {
 		rayJobRuncodeConfigmap := CreateConfigMapFromVllmSimpleRunCodeConfig(*vllmConfig)
 		common.AddLabelToConfigMap(rayJobRuncodeConfigmap, labels)
+		fmt.Println("Create ConfigMap")
+		utils.MarshalToJSON(rayJobRuncodeConfigmap)
 		c.Core().CoreV1().ConfigMaps(config.Namespace).Create(c.Ctx(), rayJobRuncodeConfigmap, metav1.CreateOptions{})
 	}
+	fmt.Println("Create rayjob")
+	utils.MarshalToJSON(rayJob)
 	runningRayJob, err := c.Ray().RayV1().RayJobs(config.Namespace).Create(c.Ctx(), &rayJob, metav1.CreateOptions{})
 	if err != nil {
 		return model.RayJobResponse{}, err
@@ -100,7 +105,7 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 
 	return model.RayJobResponse{
 		JobID:     uniqueRayJobId,
-		Namespace: runningRayJob.Namespace,
+		Namespace: config.Namespace,
 	}, nil
 }
 

@@ -23,7 +23,7 @@ Content-Type: application/json
           "name": "volume-deepseek-r1",
           "label": {
             "model": "true",
-            "actualModelPathInPod": "/mnt/data/models/test/DeepSeek-R1"
+            "actualModelPathInPod": "/mnt/data/models/DeepSeek-R1"
           },
           "mountPath": "/mnt/data/models/DeepSeek-R1",
           "source": {
@@ -66,9 +66,9 @@ Content-Type: application/json
         }
       ],
       "groupName": "workergroup",
-      "replicas": 3,
-      "minReplicas": 3,
-      "maxReplicas": 3
+      "replicas": 4,
+      "minReplicas": 4,
+      "maxReplicas": 4
     }
   ]
 }

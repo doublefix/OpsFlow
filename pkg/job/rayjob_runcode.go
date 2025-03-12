@@ -46,7 +46,7 @@ func GetVllmOnRaySimpleAutoJobConfigMap(input VllmSimpleAutoJobScriptParams) (*V
 		return nil, errors.New("missing or invalid parameters: " + strings.Join(missingParams, ", "))
 	}
 
-	configMapName := fmt.Sprintf("runcode-%s-%s", input.RayJobName, utils.RandStr(5))
+	configMapName := fmt.Sprintf("runcode-%s-%s", input.RayJobName, utils.RandStrLower(5))
 	scriptName := fmt.Sprintf("vllm_%s.py", input.RayJobName)
 	runCode := fmt.Sprintf(`
 import ray

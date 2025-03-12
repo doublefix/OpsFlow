@@ -14,6 +14,7 @@ import (
 )
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const lowerLetters = "abcdefghijklmnopqrstuvwxyz"
 
 var src = rand.NewSource(time.Now().UnixNano())
 
@@ -23,6 +24,12 @@ const (
 	// All 1-bits as many as letterIdBits
 	letterIdMask = 1<<letterIdBits - 1
 	letterIdMax  = 63 / letterIdBits
+)
+
+const (
+	letterIdBitsLower = 5
+	letterIdMaskLower = 1<<letterIdBitsLower - 1
+	letterIdMaxLower  = 63 / letterIdBitsLower
 )
 
 func MarshalToJSON(obj any) string {
@@ -47,6 +54,22 @@ func RandStr(n int) string {
 			i++
 		}
 		cache >>= letterIdBits
+		remain--
+	}
+	return string(b)
+}
+
+func RandStrLower(n int) string {
+	b := make([]byte, n)
+	for i, cache, remain := 0, src.Int63(), letterIdMaxLower; i < n; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdMaxLower
+		}
+		if idx := int(cache & letterIdMaskLower); idx < len(lowerLetters) {
+			b[i] = lowerLetters[idx]
+			i++
+		}
+		cache >>= letterIdBitsLower
 		remain--
 	}
 	return string(b)

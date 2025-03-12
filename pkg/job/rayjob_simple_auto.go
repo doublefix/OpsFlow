@@ -65,13 +65,13 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 	vllmJobSimple := VllmSimpleAutoJobScriptParams{
 		RayJobName:           clusterConfig.Job.Name,
 		ModelPath:            modelPath,
-		TensorParallelSize:   machineTypeCount.TotalMachines,
-		PipelineParallelSize: countHeaderMaicheNvidiaGPU,
+		TensorParallelSize:   countHeaderMaicheNvidiaGPU,
+		PipelineParallelSize: machineTypeCount.TotalMachines,
 	}
 
 	vllmCodeConfigMap, err := GetVllmOnRaySimpleAutoJobConfigMap(vllmJobSimple)
 	if err != nil {
-		fmt.Println(err)
+		return nil, fmt.Errorf("can't create configmap")
 	}
 
 	// Add runcode to header machine
