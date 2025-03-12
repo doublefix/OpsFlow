@@ -48,10 +48,10 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 	}
 	rayJob := rayv1.RayJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              config.Job.Name,
-			Namespace:         config.Namespace,
-			Labels:            labels,
-			CreationTimestamp: metav1.Time{Time: time.Now()},
+			Name:      config.Job.Name,
+			Namespace: config.Namespace,
+			Labels:    labels,
+			// CreationTimestamp: metav1.Time{Time: time.Now()},
 		},
 		Spec: rayv1.RayJobSpec{
 			Entrypoint:     config.Job.Cmd,
@@ -158,9 +158,9 @@ func CreateHeadGroupSpec(machines []model.MachineConfig, rayImage string) rayv1.
 	return rayv1.HeadGroupSpec{
 		RayStartParams: map[string]string{},
 		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				CreationTimestamp: metav1.Time{Time: time.Now()},
-			},
+			// ObjectMeta: metav1.ObjectMeta{
+			// 	CreationTimestamp: metav1.Time{Time: time.Now()},
+			// },
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -232,9 +232,9 @@ func CreateWorkerGroupSpecs(machines []model.MachineConfig, rayImage string) []r
 				GroupName:      groupName,
 				RayStartParams: map[string]string{},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.Time{Time: time.Now()},
-					},
+					// ObjectMeta: metav1.ObjectMeta{
+					// 	CreationTimestamp: metav1.Time{Time: time.Now()},
+					// },
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
