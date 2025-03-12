@@ -2,6 +2,8 @@ package job
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"time"
 
 	rayclient "github.com/ray-project/kuberay/ray-operator/pkg/client/clientset/versioned"
@@ -46,22 +48,36 @@ func NewRayJobWatcher(config RayJobWatcherConfig) *RayJobWatcher {
 }
 
 func (rjw *RayJobWatcher) WaitForRayClusterName() {
-	endTime := time.Now().Add(rjw.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), rjw.Timeout)
+	defer cancel()
 
-	for time.Now().Before(endTime) {
-		rayJob, err := rjw.Clientset.RayV1().RayJobs(rjw.Namespace).Get(rjw.Context, rjw.JobName, metav1.GetOptions{})
-		if err != nil {
-			time.Sleep(10 * time.Second)
-			continue
-		}
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
-		if rayJob.Status.RayClusterName != "" {
-			rjw.ResultChan <- rayJob.Status.RayClusterName
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Println("ticker.C")
+			rayJob, err := rjw.Clientset.RayV1().RayJobs(rjw.Namespace).Get(ctx, rjw.JobName, metav1.GetOptions{})
+			if err != nil {
+				log.Printf("Failed to get RayJob: %v", err)
+				continue
+			}
+
+			fmt.Println("Get raycluster name", rayJob.Status.RayClusterName)
+
+			if rayJob.Status.RayClusterName != "" {
+				fmt.Println("Get raycluster name", rayJob.Status.RayClusterName)
+				rjw.ResultChan <- rayJob.Status.RayClusterName
+				close(rjw.ResultChan)
+				return
+			}
+
+		case <-ctx.Done():
+			fmt.Println("Down due to:", ctx.Err()) // Log the error to identify the cause
+			rjw.ResultChan <- "timeout waiting for RayClusterName"
+			close(rjw.ResultChan)
 			return
 		}
-
-		time.Sleep(10 * time.Second)
 	}
-
-	rjw.ResultChan <- "timeout waiting for RayClusterName"
 }

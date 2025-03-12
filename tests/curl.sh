@@ -85,3 +85,8 @@ curl -X POST http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/ra
     }
   ]
 }'
+
+
+curl -X DELETE "http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/rayjob/idp-kuberay/deepseek-r1-671b"
+curl -X GET "http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/rayjob/idp-kuberay/deepseek-r1-671b"
+curl -X GET "http://localhost:8080/api/v1/rayjob/chess-kuberay/deepseek-r1-671b"

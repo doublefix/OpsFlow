@@ -1,0 +1,43 @@
+POST http://localhost:8080/api/v1/rayjob
+Content-Type: application/json
+
+{
+  "job": {
+    "name": "deepseek-r1-671b",
+    "cmd": "echo test"
+  },
+  "namespace": "chess-kuberay",
+  "machines": [
+    {
+      "machineType": "single",
+      "name": "ray-head",
+      "cpu": "2",
+      "memory": "4Gi",
+      "ports": [
+        {
+          "name": "gcs-server",
+          "containerPort": 6379
+        },
+        {
+          "name": "dashboard",
+          "containerPort": 8265
+        },
+        {
+          "name": "client",
+          "containerPort": 10001
+        }
+      ],
+      "isHeadNode": true
+    },
+    {
+      "machineType": "group",
+      "name": "ray-worker",
+      "cpu": "2",
+      "memory": "4Gi",
+      "groupName": "workergroup",
+      "replicas": 1,
+      "minReplicas": 1,
+      "maxReplicas": 1
+    }
+  ]
+}

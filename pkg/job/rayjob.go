@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	officalCtx "context"
+
 	"github.com/modcoco/OpsFlow/pkg/common"
 	"github.com/modcoco/OpsFlow/pkg/context"
 	"github.com/modcoco/OpsFlow/pkg/model"
@@ -83,14 +85,19 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 	go watcher.WaitForRayClusterName()
 	go func() {
 		select {
-		case clusterName := <-resultChan:
+		case clusterName, ok := <-resultChan:
+			if !ok {
+				log.Println("Result channel closed")
+				return
+			}
 			if clusterName == "timeout waiting for RayClusterName" {
+				log.Println("Wait RayClusterName time out")
 				return
 			}
 
 			service := svc.GenerateRayClusterService(config.Namespace, clusterName)
 			common.AddLabelToService(service, labels)
-			_, err := c.Core().CoreV1().Services(config.Namespace).Create(c.Ctx(), service, metav1.CreateOptions{})
+			_, err := c.Core().CoreV1().Services(config.Namespace).Create(officalCtx.Background(), service, metav1.CreateOptions{})
 			if err != nil {
 				log.Printf("Create service error: %v", err)
 				return
@@ -98,7 +105,7 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 
 			log.Printf("Service %s create success!", service.Name)
 
-		case <-time.After(35 * time.Minute):
+		case <-time.After(30 * time.Minute):
 			log.Println("Wait RayClusterName time out")
 		}
 	}()
