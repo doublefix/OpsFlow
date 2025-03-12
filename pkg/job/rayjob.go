@@ -79,7 +79,6 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 		Namespace:  config.Namespace,
 		JobName:    runningRayJob.Name,
 		Timeout:    30 * time.Minute,
-		Context:    c.Ctx(),
 		ResultChan: resultChan,
 	})
 	go watcher.WaitForRayClusterName()
@@ -97,7 +96,9 @@ func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.Ra
 
 			service := svc.GenerateRayClusterService(config.Namespace, clusterName)
 			common.AddLabelToService(service, labels)
-			_, err := c.Core().CoreV1().Services(config.Namespace).Create(officalCtx.Background(), service, metav1.CreateOptions{})
+			ctx, cancel := officalCtx.WithTimeout(officalCtx.Background(), 10*time.Second)
+			defer cancel()
+			_, err := c.Core().CoreV1().Services(config.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				log.Printf("Create service error: %v", err)
 				return

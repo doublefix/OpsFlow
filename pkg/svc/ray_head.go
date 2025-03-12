@@ -9,7 +9,7 @@ import (
 )
 
 func GenerateRayClusterService(namespace, clusterName string) *corev1.Service {
-	serviceName := fmt.Sprintf("%s-target-svc", clusterName)
+	serviceName := fmt.Sprintf("%s-vllm-svc", clusterName)
 	identifier := fmt.Sprintf("%s-head", clusterName)
 
 	return &corev1.Service{
@@ -24,7 +24,6 @@ func GenerateRayClusterService(namespace, clusterName string) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "target-port",

@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -15,7 +14,6 @@ type RayJobWatcherConfig struct {
 	Namespace  string
 	JobName    string
 	Timeout    time.Duration
-	Context    context.Context
 	ResultChan chan<- string
 }
 
@@ -24,7 +22,6 @@ type RayJobWatcher struct {
 	Namespace  string
 	JobName    string
 	Timeout    time.Duration
-	Context    context.Context
 	ResultChan chan<- string
 }
 
@@ -33,16 +30,11 @@ func NewRayJobWatcher(config RayJobWatcherConfig) *RayJobWatcher {
 		config.Timeout = 30 * time.Minute
 	}
 
-	if config.Context == nil {
-		config.Context = context.Background()
-	}
-
 	return &RayJobWatcher{
 		Clientset:  config.Clientset,
 		Namespace:  config.Namespace,
 		JobName:    config.JobName,
 		Timeout:    config.Timeout,
-		Context:    config.Context,
 		ResultChan: config.ResultChan,
 	}
 }
@@ -57,24 +49,22 @@ func (rjw *RayJobWatcher) WaitForRayClusterName() {
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("ticker.C")
+			log.Println("ticker to get rayjob: ", rjw.Namespace, rjw.JobName)
 			rayJob, err := rjw.Clientset.RayV1().RayJobs(rjw.Namespace).Get(ctx, rjw.JobName, metav1.GetOptions{})
 			if err != nil {
 				log.Printf("Failed to get RayJob: %v", err)
 				continue
 			}
 
-			fmt.Println("Get raycluster name", rayJob.Status.RayClusterName)
-
 			if rayJob.Status.RayClusterName != "" {
-				fmt.Println("Get raycluster name", rayJob.Status.RayClusterName)
+				log.Println("get raycluster name", rayJob.Status.RayClusterName)
 				rjw.ResultChan <- rayJob.Status.RayClusterName
 				close(rjw.ResultChan)
 				return
 			}
 
 		case <-ctx.Done():
-			fmt.Println("Down due to:", ctx.Err()) // Log the error to identify the cause
+			log.Println("Down due to:", ctx.Err())
 			rjw.ResultChan <- "timeout waiting for RayClusterName"
 			close(rjw.ResultChan)
 			return
