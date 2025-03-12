@@ -67,6 +67,7 @@ func ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(clusterConfig *mo
 		ModelPath:            modelPath,
 		TensorParallelSize:   countHeaderMaicheNvidiaGPU,
 		PipelineParallelSize: machineTypeCount.TotalMachines,
+		Args:                 clusterConfig.Job.Args,
 	}
 
 	vllmCodeConfigMap, err := GetVllmOnRaySimpleAutoJobConfigMap(vllmJobSimple)

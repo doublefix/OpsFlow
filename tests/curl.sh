@@ -3,7 +3,19 @@ curl -X POST http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/ra
      -d '{
   "job": {
     "kind": "vllmOnRaySimpleAutoJob",
-    "name": "deepseek-r1-671b"
+    "name": "deepseek-r1-671b",
+    "args": [
+      {
+        "label": {
+          "vllmRuncodeCustomParams": "true"
+        },
+        "params": {
+          "--tensor-parallel-size": "8",
+          "--pipeline-parallel-size": "6",
+          "--swap-space": "8"
+        }
+      }
+    ]
   },
   "namespace": "idp-kuberay",
   "rayVersion":"2.43.0",

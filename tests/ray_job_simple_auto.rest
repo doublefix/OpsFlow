@@ -4,7 +4,19 @@ Content-Type: application/json
 {
   "job": {
     "kind": "vllmOnRaySimpleAutoJob",
-    "name": "deepseek-r1-671b"
+    "name": "deepseek-r1-671b",
+    "args": [
+      {
+        "label": {
+          "vllmRuncodeCustomParams": "true"
+        },
+        "params": {
+          "--tensor-parallel-size": "8",
+          "--pipeline-parallel-size": "6",
+          "--swap-space": "8"
+        }
+      }
+    ]
   },
   "namespace": "kuberay",
   "machines": [

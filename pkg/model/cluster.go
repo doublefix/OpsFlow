@@ -23,10 +23,15 @@ type ClusterConfig struct {
 }
 
 type JobConfig struct {
-	Kind          string `json:"kind,omitempty"`          // 任务种类, vllmOnRayAutoJob(自动构建code与模型地址)
-	Name          string `json:"name"`                    // Job 名称
-	Cmd           string `json:"cmd,omitempty"`           // Job 执行的命令
-	TargetCluster string `json:"targetCluster,omitempty"` // 目标集群（可选）
+	Kind          string    `json:"kind,omitempty"`          // 任务种类, vllmOnRayAutoJob(自动构建code与模型地址)
+	Name          string    `json:"name"`                    // Job 名称
+	Cmd           string    `json:"cmd,omitempty"`           // Job 执行的命令
+	TargetCluster string    `json:"targetCluster,omitempty"` // 目标集群（可选）
+	Args          []ArgItem `json:"args,omitempty"`          // 自定义参数，适用于修改运行脚本，cmd会运行一个脚本
+}
+type ArgItem struct {
+	Label  map[string]string `json:"label"`
+	Params map[string]string `json:"params"`
 }
 
 type MachineType string
