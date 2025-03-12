@@ -64,13 +64,46 @@ func RayJobInfoHandle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{
+	labelSelector := fmt.Sprintf("model-unique-id=%s", jobName)
+
+	svcList, err := appCtx.Client().Core().CoreV1().Services(namespace).List(appCtx.Ctx(), metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Failed to list services", "error": err.Error()})
+		return
+	}
+
+	configMapList, err := appCtx.Client().Core().CoreV1().ConfigMaps(namespace).List(appCtx.Ctx(), metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Failed to list configmaps", "error": err.Error()})
+		return
+	}
+
+	var svcNames []string
+	for _, svc := range svcList.Items {
+		svcNames = append(svcNames, svc.Name)
+	}
+
+	var configMapNames []string
+	for _, cm := range configMapList.Items {
+		configMapNames = append(configMapNames, cm.Name)
+	}
+
+	response := gin.H{
 		"message":        "Job found",
+		"jobName":        jobName,
+		"namespace":      namespace,
 		"jobStatus":      existingJob.Status.JobStatus,
 		"startTime":      existingJob.Status.StartTime,
 		"failed":         existingJob.Status.Failed,
 		"rayClusterName": existingJob.Status.RayClusterName,
-	})
+	}
+	if len(svcNames) > 0 {
+		response["services"] = svcNames
+	}
+	if len(configMapNames) > 0 {
+		response["configMaps"] = configMapNames
+	}
+	c.JSON(200, response)
 }
 
 func RemoveRayJobHandle(c *gin.Context) {
