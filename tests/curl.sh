@@ -92,7 +92,7 @@ curl -X GET "http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/ra
 curl -X GET "http://localhost:8080/api/v1/rayjob/chess-kuberay/deepseek-r1-671b"
 
 
-curl --noproxy '*' -X POST "http://deepseek-r1-671b-raycluster-nzds7-vllm-svc.idp-kuberay.svc.cluster.local:8000/v1/chat/completions" \
+curl --noproxy '*' -X POST "http://deepseek-r1-671b-raycluster-k6qtj-vllm-svc.idp-kuberay.svc.cluster.local:8000/v1/chat/completions" \
 	-H "Content-Type: application/json" \
 	--data '{
 		"model": "/mnt/data/models/DeepSeek-R1",

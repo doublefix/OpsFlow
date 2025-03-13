@@ -16,7 +16,7 @@ spec:
       serviceAccountName: opsflow-sa
       containers:
       - name: opsflow
-        image: modco/opsflow:2025.0311.2340
+        image: modco/opsflow:2025.0313.1034
 ---
 apiVersion: v1
 kind: Service
