@@ -12,7 +12,7 @@ curl -X POST http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/ra
         "params": {
           "--tensor-parallel-size": "8",
           "--pipeline-parallel-size": "6",
-          "--swap-space": "8"
+          "--swap-space": "16"
         }
       }
     ]
@@ -90,3 +90,17 @@ curl -X POST http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/ra
 curl -X DELETE "http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/rayjob/idp-kuberay/deepseek-r1-671b"
 curl -X GET "http://opsflow-service.idp-kuberay.svc.cluster.local:8080/api/v1/rayjob/idp-kuberay/deepseek-r1-671b"
 curl -X GET "http://localhost:8080/api/v1/rayjob/chess-kuberay/deepseek-r1-671b"
+
+
+curl --noproxy '*' -X POST "http://deepseek-r1-671b-raycluster-nzds7-vllm-svc.idp-kuberay.svc.cluster.local:8000/v1/chat/completions" \
+	-H "Content-Type: application/json" \
+	--data '{
+		"model": "/mnt/data/models/DeepSeek-R1",
+    "stream": true,
+		"messages": [
+			{
+				"role": "user",
+				"content": "你好，请问你是谁？"
+			}
+		]
+	}'
