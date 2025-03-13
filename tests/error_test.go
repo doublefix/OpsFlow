@@ -174,7 +174,7 @@ func getError(err error) *Error {
 
 func TestError(t *testing.T) {
 	// 示例1: 创建基础业务错误
-	err1 := BusinessError(1001, "Invalid parameters", map[string]interface{}{
+	err1 := BusinessError(1001, "Invalid parameters", map[string]any{
 		"field": "username",
 		"rule":  "length > 6",
 	})
