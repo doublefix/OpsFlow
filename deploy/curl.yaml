@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl
+  labels:
+    app: curl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl
+  template:
+    metadata:
+      labels:
+        app: curl
+    spec:
+      containers:
+      - name: curl
+        image: alpine/curl:8.12.1
+        command: ["sleep", "infinity"]
+        resources:
+          limits:
+            memory: "64Mi"
+            cpu: "250m"
+          requests:
+            memory: "32Mi"
+            cpu: "100m"
