@@ -14,6 +14,13 @@ import (
 )
 
 func TestGetNodeResourcesPlus(t *testing.T) {
+	// 指定需要统计的资源名称
+	resourceNamesToTrack := map[string]bool{
+		"cpu":            true, // 统计 CPU
+		"memory":         true, // 统计内存
+		"nvidia.com/gpu": true, // 统计 GPU
+	}
+
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{},
@@ -43,6 +50,11 @@ func TestGetNodeResourcesPlus(t *testing.T) {
 
 		// 获取所有资源类型
 		for resourceName, totalResource := range node.Status.Capacity {
+			// 如果资源不在指定列表中，则跳过
+			if !resourceNamesToTrack[string(resourceName)] {
+				continue
+			}
+
 			allocatableResource := node.Status.Allocatable[resourceName]
 
 			// 计算已分配资源
