@@ -6,6 +6,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/modcoco/OpsFlow/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -71,9 +72,9 @@ func TestGetNodeResources(t *testing.T) {
 
 		// Memory 信息
 		fmt.Printf("  [Memory]\n")
-		fmt.Printf("    总资源: %d KiB (%d MiB, %d GiB)\n", totalMemory.ScaledValue(resource.Kilo), totalMemory.ScaledValue(resource.Mega), totalMemory.ScaledValue(resource.Giga))
-		fmt.Printf("    已分配: %d KiB (%d MiB, %d GiB)\n", usedMemory.ScaledValue(resource.Kilo), usedMemory.ScaledValue(resource.Mega), usedMemory.ScaledValue(resource.Giga))
-		fmt.Printf("    可分配: %d KiB (%d MiB, %d GiB)\n", allocatableMemory.ScaledValue(resource.Kilo), allocatableMemory.ScaledValue(resource.Mega), allocatableMemory.ScaledValue(resource.Giga))
+		fmt.Printf("    总资源: %d KiB (%d MiB, %d GiB)\n", utils.ScaledValue(totalMemory, resource.Kilo), utils.ScaledValue(totalMemory, resource.Mega), utils.ScaledValue(totalMemory, resource.Giga))
+		fmt.Printf("    已分配: %d KiB (%d MiB, %d GiB)\n", utils.ScaledValue(usedMemory, resource.Kilo), utils.ScaledValue(usedMemory, resource.Mega), utils.ScaledValue(usedMemory, resource.Giga))
+		fmt.Printf("    可分配: %d KiB (%d MiB, %d GiB)\n", utils.ScaledValue(allocatableMemory, resource.Kilo), utils.ScaledValue(allocatableMemory, resource.Mega), utils.ScaledValue(allocatableMemory, resource.Giga))
 
 		// GPU 信息
 		fmt.Printf("  [GPU]\n")

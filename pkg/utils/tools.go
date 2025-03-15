@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/google/uuid"
 	"github.com/modcoco/OpsFlow/pkg/model"
@@ -94,4 +95,11 @@ func StrPtr(s string) *string {
 func GenerateUniqueStr(name string) string {
 	randomSuffix := uuid.New().String()[:8]
 	return fmt.Sprintf("%s-%s", name, randomSuffix)
+}
+
+func ScaledValue(mem resource.Quantity, scale resource.Scale) int64 {
+	byteValue := mem.Value()
+	shift := int(scale / 3)
+	conversionFactor := int64(1) << (10 * uint(shift))
+	return byteValue / conversionFactor
 }
