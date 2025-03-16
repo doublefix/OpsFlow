@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1" // 需要导入 v1alpha1 包
+	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -130,12 +130,106 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 				log.Fatalf("无法创建 NodeResourceInfo CRD: %v", err)
 			}
 		} else {
-			// 如果 CRD 已存在，则更新 CRD 实例
-			existingResourceInfo.Object["spec"] = nodeResourceInfo.Spec
-			_, err = crdClient.Update(context.TODO(), existingResourceInfo, metav1.UpdateOptions{})
-			if err != nil {
-				log.Fatalf("无法更新 NodeResourceInfo CRD: %v", err)
+			// 比较现有 CRD 和当前查询的资源信息
+			needsUpdate := false
+			existingResources := existingResourceInfo.Object["spec"].(map[string]interface{})["resources"].(map[string]interface{})
+
+			// 打印现有的资源信息
+			fmt.Printf("现有的资源信息: %v\n", existingResources)
+
+			// 遍历资源并检查是否有变动
+			for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
+				existingResource, exists := existingResources[resourceName]
+
+				// 如果该资源不存在或字段有所不同，则认为需要更新
+				if !exists {
+					needsUpdate = true
+					fmt.Printf("资源 %s 在现有 CRD 中不存在，新增该资源\n", resourceName)
+					fmt.Printf("新增的资源 %s = %v\n", resourceName, resourceInfo)
+					break
+				}
+
+				// 对于已有的资源，逐个字段比较（allocatable, total, used）
+				existingResourceMap := existingResource.(map[string]interface{})
+				newResourceMap := map[string]any{
+					"total":       resourceInfo.Total,
+					"allocatable": resourceInfo.Allocatable,
+					"used":        resourceInfo.Used,
+				}
+
+				for key, value := range newResourceMap {
+					existingValue, exists := existingResourceMap[key]
+					if !exists || existingValue != value {
+						needsUpdate = true
+						fmt.Printf("资源 %s 的 %s 字段发生变化: 旧值 = %v, 新值 = %v\n", resourceName, key, existingValue, value)
+						break
+					}
+				}
+
+				// 如果检测到变化，退出循环
+				if needsUpdate {
+					break
+				}
+			}
+
+			// 如果有变动，则更新 CRD 实例
+			if needsUpdate {
+				existingResourceInfo.Object["spec"] = nodeResourceInfo.Spec
+
+				// 打印修改后的资源信息
+				fmt.Printf("更新后的资源信息: %v\n", nodeResourceInfo.Spec.Resources)
+
+				_, err = crdClient.Update(context.TODO(), existingResourceInfo, metav1.UpdateOptions{})
+				if err != nil {
+					log.Fatalf("无法更新 NodeResourceInfo CRD: %v", err)
+				}
+				fmt.Printf("NodeResourceInfo CRD %s 已更新\n", node.Name)
+			} else {
+				fmt.Printf("NodeResourceInfo CRD %s 没有变动，无需更新\n", node.Name)
 			}
 		}
+	}
+
+	// 分页查询所有 CRD 实例，最多查询 50 个
+	var continueToken string
+	for {
+		crdList, err := crdClient.List(context.TODO(), metav1.ListOptions{
+			Limit:    50,
+			Continue: continueToken,
+		})
+		if err != nil {
+			log.Fatalf("无法查询 CRD 实例: %v", err)
+		}
+
+		// 遍历 CRD 实例，检查节点是否存在
+		for _, crd := range crdList.Items {
+			nodeName := crd.GetName()
+			nodeExists := false
+
+			// 检查节点是否在集群中
+			for _, node := range nodes.Items {
+				if node.Name == nodeName {
+					nodeExists = true
+					break
+				}
+			}
+
+			// 如果节点不存在，则删除 CRD 实例
+			if !nodeExists {
+				err := crdClient.Delete(context.TODO(), crd.GetName(), metav1.DeleteOptions{})
+				if err != nil {
+					log.Printf("无法删除 NodeResourceInfo CRD %s: %v", nodeName, err)
+				} else {
+					log.Printf("已删除 NodeResourceInfo CRD %s", nodeName)
+				}
+			}
+		}
+
+		// 检查是否还有更多的 CRD 实例
+		if crdList.GetContinue() == "" {
+			break
+		}
+		// 更新 continue token，进行下一次分页查询
+		continueToken = crdList.GetContinue()
 	}
 }
