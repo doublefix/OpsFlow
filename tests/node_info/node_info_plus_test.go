@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
+	"github.com/modcoco/OpsFlow/pkg/crd"
 	"github.com/modcoco/OpsFlow/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,7 +169,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 				}
 
 				// 对于已有的资源，逐个字段比较（allocatable, total, used）
-				existingResourceMap := existingResource.(map[string]interface{})
+				existingResourceMap := existingResource.(map[string]any)
 				newResourceMap := map[string]any{
 					"total":       resourceInfo.Total,
 					"allocatable": resourceInfo.Allocatable,
@@ -208,46 +209,5 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 		}
 	}
 
-	// 分页查询所有 CRD 实例，最多查询 50 个
-	var continueToken string
-	for {
-		crdList, err := crdClient.List(context.TODO(), metav1.ListOptions{
-			Limit:    50,
-			Continue: continueToken,
-		})
-		if err != nil {
-			log.Fatalf("无法查询 CRD 实例: %v", err)
-		}
-
-		// 遍历 CRD 实例，检查节点是否存在
-		for _, crd := range crdList.Items {
-			nodeName := crd.GetName()
-			nodeExists := false
-
-			// 检查节点是否在集群中
-			for _, node := range nodes.Items {
-				if node.Name == nodeName {
-					nodeExists = true
-					break
-				}
-			}
-
-			// 如果节点不存在，则删除 CRD 实例
-			if !nodeExists {
-				err := crdClient.Delete(context.TODO(), crd.GetName(), metav1.DeleteOptions{})
-				if err != nil {
-					log.Printf("无法删除 NodeResourceInfo CRD %s: %v", nodeName, err)
-				} else {
-					log.Printf("已删除 NodeResourceInfo CRD %s", nodeName)
-				}
-			}
-		}
-
-		// 检查是否还有更多的 CRD 实例
-		if crdList.GetContinue() == "" {
-			break
-		}
-		// 更新 continue token，进行下一次分页查询
-		continueToken = crdList.GetContinue()
-	}
+	crd.DeleteNonExistingNodeResourceInfo(crdClient, nodes)
 }
