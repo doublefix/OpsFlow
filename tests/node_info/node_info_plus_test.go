@@ -17,8 +17,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// TestCreateNodeResourceInfo 用于创建 NodeResourceInfo CRD
-func TestCreateNodeResourceInfo(t *testing.T) {
+// TestCreateOrUpdateNodeResourceInfo 用于创建或更新 NodeResourceInfo CRD
+func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 	// 需要追踪的资源类型
 	resourceNamesToTrack := map[string]bool{
 		"cpu":            true, // 统计 CPU
@@ -110,21 +110,32 @@ func TestCreateNodeResourceInfo(t *testing.T) {
 			}
 		}
 
-		// 使用动态客户端创建 CRD 实例
-		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
+		// 尝试获取现有的 CRD 实例
+		existingResourceInfo, err := crdClient.Get(context.TODO(), node.Name, metav1.GetOptions{})
 		if err != nil {
-			log.Fatalf("无法转换 NodeResourceInfo 对象: %v", err)
-		}
+			// 如果 CRD 不存在，则创建新的 CRD 实例
+			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
+			if err != nil {
+				log.Fatalf("无法转换 NodeResourceInfo 对象: %v", err)
+			}
 
-		// 将 "Kind" 字段添加到 unstructured 对象
-		unstructuredObj["kind"] = "NodeResourceInfo"
-		// 将 "apiVersion" 字段添加到 unstructured 对象
-		unstructuredObj["apiVersion"] = "opsflow.io/v1alpha1"
+			// 将 "Kind" 字段添加到 unstructured 对象
+			unstructuredObj["kind"] = "NodeResourceInfo"
+			// 将 "apiVersion" 字段添加到 unstructured 对象
+			unstructuredObj["apiVersion"] = "opsflow.io/v1alpha1"
 
-		// 创建 NodeResourceInfo CRD
-		_, err = crdClient.Create(context.TODO(), &unstructured.Unstructured{Object: unstructuredObj}, metav1.CreateOptions{})
-		if err != nil {
-			log.Fatalf("无法创建 NodeResourceInfo CRD: %v", err)
+			// 创建新的 NodeResourceInfo CRD
+			_, err = crdClient.Create(context.TODO(), &unstructured.Unstructured{Object: unstructuredObj}, metav1.CreateOptions{})
+			if err != nil {
+				log.Fatalf("无法创建 NodeResourceInfo CRD: %v", err)
+			}
+		} else {
+			// 如果 CRD 已存在，则更新 CRD 实例
+			existingResourceInfo.Object["spec"] = nodeResourceInfo.Spec
+			_, err = crdClient.Update(context.TODO(), existingResourceInfo, metav1.UpdateOptions{})
+			if err != nil {
+				log.Fatalf("无法更新 NodeResourceInfo CRD: %v", err)
+			}
 		}
 	}
 }
