@@ -2,17 +2,12 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 
-	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
 	"github.com/modcoco/OpsFlow/pkg/crd"
-	"github.com/modcoco/OpsFlow/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"github.com/modcoco/OpsFlow/pkg/node"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -62,151 +57,16 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 		log.Fatalf("无法获取节点列表: %v", err)
 	}
 
-	// 遍历所有节点
-	for _, node := range nodes.Items {
-		fmt.Printf("Node: %s\n", node.Name)
+	opts := node.BatchUpdateCreateOptions{
+		Clientset:            clientset,
+		CRDClient:            crdClient,
+		Nodes:                nodes,
+		ResourceNamesToTrack: resourceNamesToTrack,
+		Parallelism:          1,
+	}
 
-		// 创建 NodeResourceInfo 对象
-		nodeResourceInfo := &v1alpha1.NodeResourceInfo{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: node.Name,
-			},
-			Spec: v1alpha1.NodeResourceInfoSpec{
-				NodeName:  node.Name,
-				Resources: map[string]v1alpha1.ResourceInfo{},
-			},
-		}
-
-		// 遍历节点的资源信息
-		for resourceName, totalResource := range node.Status.Capacity {
-			// 如果资源不在追踪列表中，则跳过
-			if !resourceNamesToTrack[string(resourceName)] {
-				continue
-			}
-
-			allocatableResource := node.Status.Allocatable[resourceName]
-
-			// 计算已分配资源
-			var usedResource resource.Quantity
-			// 获取该节点的所有 Pod 列表
-			pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
-			})
-			if err != nil {
-				log.Fatalf("无法获取 Pod 列表: %v", err)
-			}
-			for _, pod := range pods.Items {
-				if pod.Spec.NodeName == node.Name {
-					for _, container := range pod.Spec.Containers {
-						if request, ok := container.Resources.Requests[resourceName]; ok {
-							usedResource.Add(request)
-						}
-					}
-				}
-			}
-
-			// 将资源信息添加到 NodeResourceInfo 对象中
-			resourceName := string(resourceName)
-			if resourceName == "cpu" {
-				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
-					Total:       fmt.Sprintf("%dm", totalResource.MilliValue()),
-					Allocatable: fmt.Sprintf("%dm", allocatableResource.MilliValue()),
-					Used:        fmt.Sprintf("%dm", usedResource.MilliValue()),
-				}
-			} else if resourceName == "memory" {
-				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
-					Total:       fmt.Sprintf("%dMi", utils.ScaledValue(totalResource, resource.Mega)),
-					Allocatable: fmt.Sprintf("%dMi", utils.ScaledValue(allocatableResource, resource.Mega)),
-					Used:        fmt.Sprintf("%dMi", utils.ScaledValue(usedResource, resource.Mega)),
-				}
-			} else {
-				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
-					Total:       totalResource.String(),
-					Allocatable: allocatableResource.String(),
-					Used:        usedResource.String(),
-				}
-			}
-
-		}
-
-		// 尝试获取现有的 CRD 实例
-		existingResourceInfo, err := crdClient.Get(context.TODO(), node.Name, metav1.GetOptions{})
-		if err != nil {
-			// 如果 CRD 不存在，则创建新的 CRD 实例
-			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
-			if err != nil {
-				log.Fatalf("无法转换 NodeResourceInfo 对象: %v", err)
-			}
-
-			// 将 "Kind" 字段添加到 unstructured 对象
-			unstructuredObj["kind"] = "NodeResourceInfo"
-			// 将 "apiVersion" 字段添加到 unstructured 对象
-			unstructuredObj["apiVersion"] = "opsflow.io/v1alpha1"
-
-			// 创建新的 NodeResourceInfo CRD
-			_, err = crdClient.Create(context.TODO(), &unstructured.Unstructured{Object: unstructuredObj}, metav1.CreateOptions{})
-			if err != nil {
-				log.Fatalf("无法创建 NodeResourceInfo CRD: %v", err)
-			}
-		} else {
-			// 比较现有 CRD 和当前查询的资源信息
-			needsUpdate := false
-			existingResources := existingResourceInfo.Object["spec"].(map[string]any)["resources"].(map[string]any)
-
-			// 打印现有的资源信息
-			fmt.Printf("现有的资源信息: %v\n", existingResources)
-
-			// 遍历资源并检查是否有变动
-			for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
-				existingResource, exists := existingResources[resourceName]
-
-				// 如果该资源不存在或字段有所不同，则认为需要更新
-				if !exists {
-					needsUpdate = true
-					fmt.Printf("资源 %s 在现有 CRD 中不存在，新增该资源\n", resourceName)
-					fmt.Printf("新增的资源 %s = %v\n", resourceName, resourceInfo)
-					break
-				}
-
-				// 对于已有的资源，逐个字段比较（allocatable, total, used）
-				existingResourceMap := existingResource.(map[string]any)
-				newResourceMap := map[string]any{
-					"total":       resourceInfo.Total,
-					"allocatable": resourceInfo.Allocatable,
-					"used":        resourceInfo.Used,
-				}
-
-				for key, value := range newResourceMap {
-					existingValue, exists := existingResourceMap[key]
-					if !exists || existingValue != value {
-						needsUpdate = true
-						fmt.Printf("资源 %s 的 %s 字段发生变化: 旧值 = %v, 新值 = %v\n", resourceName, key, existingValue, value)
-						break
-					}
-				}
-
-				// 如果检测到变化，退出循环
-				if needsUpdate {
-					break
-				}
-			}
-
-			// 如果有变动，则更新 CRD 实例
-			if needsUpdate {
-				existingResourceInfo.Object["spec"] = nodeResourceInfo.Spec
-
-				// 打印修改后的资源信息
-				fmt.Printf("更新后的资源信息: %v\n", nodeResourceInfo.Spec.Resources)
-
-				_, err = crdClient.Update(context.TODO(), existingResourceInfo, metav1.UpdateOptions{})
-				if err != nil {
-					log.Fatalf("无法更新 NodeResourceInfo CRD: %v", err)
-				}
-				fmt.Printf("NodeResourceInfo CRD %s 已更新\n", node.Name)
-			} else {
-				fmt.Printf("NodeResourceInfo CRD %s 没有变动，无需更新\n", node.Name)
-			}
-		}
+	if err := node.BatchAddNodeResourceInfo(opts); err != nil {
+		log.Fatalf("批量更新或创建 NodeResourceInfo 失败: %v", err)
 	}
 
 	crd.DeleteNonExistingNodeResourceInfo(crdClient, nodes)
