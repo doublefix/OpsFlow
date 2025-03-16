@@ -1,0 +1,19 @@
+apiVersion: opsflow.io/v1alpha1
+kind: NodeResourceInfo
+metadata:
+  name: node1
+spec:
+  nodeName: node1
+  resources:
+    cpu:
+      total: "4"
+      allocatable: "3"
+      used: "2"
+    memory:
+      total: "16Gi"
+      allocatable: "12Gi"
+      used: "8Gi"
+    nvidia.com/gpu:
+      total: "4"
+      allocatable: "3"
+      used: "2"
