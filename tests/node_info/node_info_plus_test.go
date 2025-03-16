@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
+	"github.com/modcoco/OpsFlow/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,12 +61,6 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 		log.Fatalf("无法获取节点列表: %v", err)
 	}
 
-	// 获取 Pod 列表
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Fatalf("无法获取 Pod 列表: %v", err)
-	}
-
 	// 遍历所有节点
 	for _, node := range nodes.Items {
 		fmt.Printf("Node: %s\n", node.Name)
@@ -92,6 +87,13 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 
 			// 计算已分配资源
 			var usedResource resource.Quantity
+			// 获取该节点的所有 Pod 列表
+			pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
+			})
+			if err != nil {
+				log.Fatalf("无法获取 Pod 列表: %v", err)
+			}
 			for _, pod := range pods.Items {
 				if pod.Spec.NodeName == node.Name {
 					for _, container := range pod.Spec.Containers {
@@ -103,11 +105,27 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 			}
 
 			// 将资源信息添加到 NodeResourceInfo 对象中
-			nodeResourceInfo.Spec.Resources[string(resourceName)] = v1alpha1.ResourceInfo{
-				Total:       totalResource.String(),
-				Allocatable: allocatableResource.String(),
-				Used:        usedResource.String(),
+			resourceName := string(resourceName)
+			if resourceName == "cpu" {
+				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
+					Total:       fmt.Sprintf("%dm", totalResource.MilliValue()),
+					Allocatable: fmt.Sprintf("%dm", allocatableResource.MilliValue()),
+					Used:        fmt.Sprintf("%dm", usedResource.MilliValue()),
+				}
+			} else if resourceName == "memory" {
+				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
+					Total:       fmt.Sprintf("%dMi", utils.ScaledValue(totalResource, resource.Mega)),
+					Allocatable: fmt.Sprintf("%dMi", utils.ScaledValue(allocatableResource, resource.Mega)),
+					Used:        fmt.Sprintf("%dMi", utils.ScaledValue(usedResource, resource.Mega)),
+				}
+			} else {
+				nodeResourceInfo.Spec.Resources[resourceName] = v1alpha1.ResourceInfo{
+					Total:       totalResource.String(),
+					Allocatable: allocatableResource.String(),
+					Used:        usedResource.String(),
+				}
 			}
+
 		}
 
 		// 尝试获取现有的 CRD 实例
@@ -132,7 +150,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 		} else {
 			// 比较现有 CRD 和当前查询的资源信息
 			needsUpdate := false
-			existingResources := existingResourceInfo.Object["spec"].(map[string]interface{})["resources"].(map[string]interface{})
+			existingResources := existingResourceInfo.Object["spec"].(map[string]any)["resources"].(map[string]any)
 
 			// 打印现有的资源信息
 			fmt.Printf("现有的资源信息: %v\n", existingResources)
