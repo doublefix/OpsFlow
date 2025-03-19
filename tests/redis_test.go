@@ -14,9 +14,16 @@ func TestRedis(t *testing.T) {
 	// Cmdable 是 Client 和 ClusterClient 的通用接口
 	var redisClient redis.Cmdable
 
-	if false {
+	if true {
 		redisClient = redis.NewClusterClient(&redis.ClusterOptions{
-			Addrs:    []string{"10.187.6.5:30531", "10.187.6.6:30531"},
+			Addrs: []string{
+				"10.187.6.3:31000",
+				"10.187.6.4:31001",
+				"10.187.6.5:31002",
+				"10.187.6.3:31003",
+				"10.187.6.4:31004",
+				"10.187.6.5:31005",
+			},
 			Password: "pass12345",
 		})
 	} else {
@@ -26,10 +33,10 @@ func TestRedis(t *testing.T) {
 		})
 	}
 
-	// err := redisClient.Set(ctx, "foo", "bar", 0).Err()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err := redisClient.Set(ctx, "foo", "bar", 0).Err()
+	if err != nil {
+		panic(err)
+	}
 
 	val, err := redisClient.Get(ctx, "foo").Result()
 	if err != nil {
