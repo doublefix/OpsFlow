@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -13,27 +15,65 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	maxRetries = 3               // 最大重试次数
+	retryDelay = 1 * time.Second // 重试延迟
+)
+
 // 更新或创建 NodeResourceInfo CRD
 func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo) error {
-	// 获取当前 CRD 资源
-	existingResourceInfo, err := crdClient.Get(context.TODO(), nodeResourceInfo.Spec.NodeName, metav1.GetOptions{})
-	if err != nil {
-		// CRD 不存在，则创建
-		return createNodeResourceInfo(crdClient, nodeResourceInfo)
-	}
+	var retryCount int
 
-	// 检查是否需要更新
-	needsUpdate, err := isNodeResourceInfoUpdated(existingResourceInfo, nodeResourceInfo)
-	if err != nil {
-		return fmt.Errorf("检查 NodeResourceInfo 资源变更失败: %w", err)
-	}
+	for {
+		// 获取当前 CRD 资源
+		existingResourceInfo, err := crdClient.Get(context.TODO(), nodeResourceInfo.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// CRD 不存在，则创建
+				return createNodeResourceInfo(crdClient, nodeResourceInfo)
+			}
+			return fmt.Errorf("获取 NodeResourceInfo 失败: %w", err)
+		}
 
-	if !needsUpdate {
-		log.Printf("NodeResourceInfo %s 没有变动，无需更新", nodeResourceInfo.Spec.NodeName)
-		return nil
-	}
+		// 检查是否需要更新
+		needsUpdate, err := isNodeResourceInfoUpdated(existingResourceInfo, nodeResourceInfo)
+		if err != nil {
+			return fmt.Errorf("检查 NodeResourceInfo 资源变更失败: %w", err)
+		}
 
-	return updateNodeResourceInfo(crdClient, existingResourceInfo, nodeResourceInfo)
+		if !needsUpdate {
+			log.Printf("NodeResourceInfo %s 没有变动，无需更新", nodeResourceInfo.Spec.NodeName)
+			return nil
+		}
+
+		// 设置 resourceVersion 以支持乐观锁
+		resourceVersion, found, err := unstructured.NestedString(existingResourceInfo.Object, "metadata", "resourceVersion")
+		if err != nil || !found {
+			return fmt.Errorf("无法获取现有 CRD 的 resourceVersion")
+		}
+		nodeResourceInfo.ObjectMeta.ResourceVersion = resourceVersion
+
+		// 尝试更新
+		err = updateNodeResourceInfo(crdClient, existingResourceInfo, nodeResourceInfo)
+		if err == nil {
+			return nil // 更新成功
+		}
+
+		// 处理冲突
+		if errors.IsConflict(err) {
+			retryCount++
+			if retryCount >= maxRetries {
+				return fmt.Errorf("更新 NodeResourceInfo %s 失败，已达到最大重试次数: %w", nodeResourceInfo.Spec.NodeName, err)
+			}
+
+			log.Printf("NodeResourceInfo %s 更新冲突，正在重试 (重试次数: %d/%d)", nodeResourceInfo.Spec.NodeName, retryCount, maxRetries)
+			time.Sleep(retryDelay) // 延迟后重试
+			continue
+		}
+
+		// 其他错误
+		return fmt.Errorf("无法更新 NodeResourceInfo CRD: %w", err)
+	}
 }
 
 // createNodeResourceInfo 创建新的 NodeResourceInfo CRD

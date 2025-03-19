@@ -70,5 +70,4 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 	}
 
 	crd.DeleteNonExistingNodeResourceInfo(crdClient, nodes)
-	// 通过分配任务的形式完美避开锁的问题
 }
