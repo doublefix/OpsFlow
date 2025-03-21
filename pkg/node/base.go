@@ -1,8 +1,10 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
@@ -89,4 +91,39 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 		}
 	}
 	return finalErr
+}
+
+func BatchCheckNodesNotExist(client kubernetes.Interface, nodeNames []string) ([]string, error) {
+	// 如果 nodeNames 为空，直接返回空列表
+	if len(nodeNames) == 0 {
+		return nil, nil
+	}
+
+	// 构造 labelSelector 查询，匹配 kubernetes.io/hostname 标签
+	labelSelector := fmt.Sprintf("kubernetes.io/hostname in (%s)", strings.Join(nodeNames, ","))
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+
+	// 查询 Kubernetes API 获取匹配的节点
+	nodes, err := client.CoreV1().Nodes().List(context.TODO(), listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %v", err)
+	}
+
+	// 将存在的节点名称存入 map
+	existingNodes := make(map[string]struct{}, len(nodes.Items))
+	for _, node := range nodes.Items {
+		existingNodes[node.Name] = struct{}{}
+	}
+
+	// 找出不存在的节点
+	var nonExistingNodes []string
+	for _, nodeName := range nodeNames {
+		if _, exists := existingNodes[nodeName]; !exists {
+			nonExistingNodes = append(nonExistingNodes, nodeName)
+		}
+	}
+
+	return nonExistingNodes, nil
 }

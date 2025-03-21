@@ -73,7 +73,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 
 	optsDelCRD := crd.DeleteNodeResourceInfoOptions{
 		CRDClient:   crdClient,
-		BatchNodes:  nodes,
+		KubeClient:  clientset,
 		Parallelism: 3,
 	}
 
@@ -268,7 +268,6 @@ func (s *Scheduler) processShardNodes(nodes *corev1.NodeList) error {
 
 	optsDelCRD := crd.DeleteNodeResourceInfoOptions{
 		CRDClient:   s.crdClient,
-		BatchNodes:  nodes,
 		Parallelism: 3,
 	}
 
