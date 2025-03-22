@@ -2,13 +2,16 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/modcoco/OpsFlow/pkg/crd"
 	"github.com/modcoco/OpsFlow/pkg/node"
+	"github.com/redis/go-redis/v9"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -111,5 +114,58 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 
 	if finalErr != nil {
 		log.Printf("批量操作过程中发生错误: %v", finalErr)
+	}
+}
+
+type Task struct {
+	Type    string `json:"type"`    // 任务类型
+	Payload string `json:"payload"` // 任务数据
+}
+
+func TestAddToQueue(t *testing.T) {
+	// 创建 Redis 集群客户端
+	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs: []string{
+			"10.187.6.3:31000",
+			"10.187.6.4:31001",
+			"10.187.6.5:31002",
+			"10.187.6.3:31100",
+			"10.187.6.4:31101",
+			"10.187.6.5:31102",
+		},
+		Password: "pass12345",
+	})
+
+	// 检查 Redis 连接是否成功
+	ctx := context.Background()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+
+	// 动态生成任务并推送到队列
+	queueName := "task_queue"
+	for i := 1; i <= 10; i++ {
+		task := Task{
+			Type:    "email",
+			Payload: fmt.Sprintf("Email content %d", i),
+		}
+
+		// 序列化任务
+		taskData, err := json.Marshal(task)
+		if err != nil {
+			log.Printf("Failed to marshal task: %v", err)
+			continue
+		}
+
+		// 推送任务到队列
+		err = redisClient.RPush(ctx, queueName, taskData).Err()
+		if err != nil {
+			log.Printf("Failed to push task to queue: %v", err)
+		} else {
+			fmt.Printf("Pushed task: %s\n", taskData)
+		}
+
+		// 模拟任务生成间隔
+		time.Sleep(500 * time.Millisecond)
 	}
 }
