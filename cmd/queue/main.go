@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Task 定义任务结构体
@@ -62,7 +65,16 @@ func (h *ReportHandler) Handle(payload any) error {
 }
 
 // NodeBatchHandler 处理批量节点任务
-type NodeBatchHandler struct{}
+type NodeBatchHandler struct {
+	clientset *kubernetes.Clientset // 添加 Kubernetes 客户端字段
+}
+
+// NewNodeBatchHandler 创建 NodeBatchHandler
+func NewNodeBatchHandler(clientset *kubernetes.Clientset) *NodeBatchHandler {
+	return &NodeBatchHandler{
+		clientset: clientset,
+	}
+}
 
 func (h *NodeBatchHandler) Handle(payload any) error {
 	// 将 payload 转换为 []interface{}
@@ -82,7 +94,16 @@ func (h *NodeBatchHandler) Handle(payload any) error {
 	}
 
 	fmt.Printf("Processing node batch: %v\n", nodeNames)
-	// 在这里处理批量节点数据
+
+	// 使用 Kubernetes 客户端处理节点数据
+	for _, nodeName := range nodeNames {
+		node, err := h.clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %v", nodeName, err)
+		}
+		fmt.Printf("Node %s status: %v\n", nodeName, node.Status.Addresses)
+	}
+
 	return nil
 }
 
@@ -91,13 +112,13 @@ type TaskProcessor struct {
 	handlers map[string]TaskHandler
 }
 
-func NewTaskProcessor() *TaskProcessor {
+func NewTaskProcessor(clientset *kubernetes.Clientset) *TaskProcessor {
 	return &TaskProcessor{
 		handlers: map[string]TaskHandler{
 			"email":        &EmailHandler{},
 			"notification": &NotificationHandler{},
 			"report":       &ReportHandler{},
-			"node_batch":   &NodeBatchHandler{}, // 注册批量节点任务处理器
+			"node_batch":   NewNodeBatchHandler(clientset), // 传入 Kubernetes 客户端
 		},
 	}
 }
@@ -111,6 +132,21 @@ func (p *TaskProcessor) Process(task Task) error {
 }
 
 func main() {
+	// 加载 kubeconfig 配置
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		log.Fatalf("无法加载 kubeconfig: %v", err)
+	}
+
+	// 创建 Kubernetes 客户端
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("无法创建 Kubernetes 客户端: %v", err)
+	}
+
 	// 创建 Redis 集群客户端
 	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs: []string{
@@ -139,7 +175,7 @@ func main() {
 	// 启动 Worker Pool
 	workerCount := 3 // 设置 Worker 数量
 	var wg sync.WaitGroup
-	processor := NewTaskProcessor()
+	processor := NewTaskProcessor(clientset) // 传入 Kubernetes 客户端
 
 	for i := range workerCount {
 		wg.Add(1)
