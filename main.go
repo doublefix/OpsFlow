@@ -50,7 +50,7 @@ func main() {
 		Clientset:   client.Core(),
 		CRDClient:   client.DynamicNRI(),
 		RedisClient: redisClient,
-		WorkerCount: 3,
+		WorkerCount: 1,
 		QueueName:   "task_queue",
 	}
 	go queue.StartTaskQueueProcessor(ctx, config)
