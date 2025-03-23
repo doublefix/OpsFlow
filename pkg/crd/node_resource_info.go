@@ -96,6 +96,7 @@ func deleteCRDsConcurrently(
 				log.Printf("无法删除 NodeResourceInfo CRD %s: %v", n, err)
 				errCh <- fmt.Errorf("删除失败: %s, 错误: %w", n, err)
 			} else {
+				// TODO
 				log.Printf("已删除 NodeResourceInfo CRD %s", n)
 			}
 		}(nodeName)

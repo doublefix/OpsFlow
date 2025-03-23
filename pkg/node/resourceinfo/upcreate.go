@@ -56,6 +56,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 		// 尝试更新
 		err = updateNodeResourceInfo(crdClient, existingResourceInfo, nodeResourceInfo)
 		if err == nil {
+			// TODO
 			return nil // 更新成功
 		}
 
@@ -91,6 +92,7 @@ func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, no
 		return fmt.Errorf("无法创建 NodeResourceInfo CRD: %w", err)
 	}
 
+	// TODO
 	log.Printf("NodeResourceInfo %s 已创建", nodeResourceInfo.Name)
 	return nil
 }
