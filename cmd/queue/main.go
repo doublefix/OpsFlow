@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -77,13 +78,11 @@ func NewNodeBatchHandler(clientset *kubernetes.Clientset) *NodeBatchHandler {
 }
 
 func (h *NodeBatchHandler) Handle(payload any) error {
-	// 将 payload 转换为 []interface{}
 	payloadSlice, ok := payload.([]any)
 	if !ok {
 		return fmt.Errorf("invalid payload for node_batch task: %v", payload)
 	}
 
-	// 将 []interface{} 转换为 []string
 	nodeNames := make([]string, 0, len(payloadSlice))
 	for _, item := range payloadSlice {
 		nodeName, ok := item.(string)
@@ -95,13 +94,15 @@ func (h *NodeBatchHandler) Handle(payload any) error {
 
 	fmt.Printf("Processing node batch: %v\n", nodeNames)
 
-	// 使用 Kubernetes 客户端处理节点数据
-	for _, nodeName := range nodeNames {
-		node, err := h.clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to get node %s: %v", nodeName, err)
-		}
-		fmt.Printf("Node %s status: %v\n", nodeName, node.Status.Addresses)
+	nodes, err := h.clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("kubernetes.io/hostname in (%s)", strings.Join(nodeNames, ",")), // 使用 in 语法批量过滤
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %v", err)
+	}
+
+	for _, node := range nodes.Items {
+		fmt.Printf("Node %s status: %v\n", node.Name, node.Status.Addresses)
 	}
 
 	return nil
