@@ -17,35 +17,72 @@ import (
 // Task 定义任务结构体
 type Task struct {
 	Type    string `json:"type"`    // 任务类型
-	Payload string `json:"payload"` // 任务数据
+	Payload any    `json:"payload"` // 任务数据
 }
 
 // TaskHandler 定义任务处理接口
 type TaskHandler interface {
-	Handle(payload string) error
+	Handle(payload any) error
 }
 
 // EmailHandler 处理邮件任务
 type EmailHandler struct{}
 
-func (h *EmailHandler) Handle(payload string) error {
-	fmt.Printf("Sending email: %s\n", payload)
+func (h *EmailHandler) Handle(payload interface{}) error {
+	emailContent, ok := payload.(string)
+	if !ok {
+		return fmt.Errorf("invalid payload for email task: %v", payload)
+	}
+	fmt.Printf("Sending email: %s\n", emailContent)
 	return nil
 }
 
 // NotificationHandler 处理通知任务
 type NotificationHandler struct{}
 
-func (h *NotificationHandler) Handle(payload string) error {
-	fmt.Printf("Sending notification: %s\n", payload)
+func (h *NotificationHandler) Handle(payload interface{}) error {
+	notificationContent, ok := payload.(string)
+	if !ok {
+		return fmt.Errorf("invalid payload for notification task: %v", payload)
+	}
+	fmt.Printf("Sending notification: %s\n", notificationContent)
 	return nil
 }
 
 // ReportHandler 处理报告任务
 type ReportHandler struct{}
 
-func (h *ReportHandler) Handle(payload string) error {
-	fmt.Printf("Generating report: %s\n", payload)
+func (h *ReportHandler) Handle(payload any) error {
+	reportContent, ok := payload.(string)
+	if !ok {
+		return fmt.Errorf("invalid payload for report task: %v", payload)
+	}
+	fmt.Printf("Generating report: %s\n", reportContent)
+	return nil
+}
+
+// NodeBatchHandler 处理批量节点任务
+type NodeBatchHandler struct{}
+
+func (h *NodeBatchHandler) Handle(payload any) error {
+	// 将 payload 转换为 []interface{}
+	payloadSlice, ok := payload.([]any)
+	if !ok {
+		return fmt.Errorf("invalid payload for node_batch task: %v", payload)
+	}
+
+	// 将 []interface{} 转换为 []string
+	nodeNames := make([]string, 0, len(payloadSlice))
+	for _, item := range payloadSlice {
+		nodeName, ok := item.(string)
+		if !ok {
+			return fmt.Errorf("invalid node name in payload: %v", item)
+		}
+		nodeNames = append(nodeNames, nodeName)
+	}
+
+	fmt.Printf("Processing node batch: %v\n", nodeNames)
+	// 在这里处理批量节点数据
 	return nil
 }
 
@@ -60,6 +97,7 @@ func NewTaskProcessor() *TaskProcessor {
 			"email":        &EmailHandler{},
 			"notification": &NotificationHandler{},
 			"report":       &ReportHandler{},
+			"node_batch":   &NodeBatchHandler{}, // 注册批量节点任务处理器
 		},
 	}
 }
@@ -160,7 +198,7 @@ func processTasks(ctx context.Context, workerID int, taskChannel <-chan Task, pr
 			return
 		default:
 			// 处理任务
-			fmt.Printf("Worker %d processing task: %s\n", workerID, task.Payload)
+			fmt.Printf("Worker %d processing task: %v\n", workerID, task.Payload)
 			if err := processor.Process(task); err != nil {
 				log.Printf("Worker %d failed to process task: %v\n", workerID, err)
 			}

@@ -119,7 +119,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 
 type Task struct {
 	Type    string `json:"type"`    // 任务类型
-	Payload string `json:"payload"` // 任务数据
+	Payload any    `json:"payload"` // 任务数据
 }
 
 func TestAddToQueue(t *testing.T) {
@@ -167,5 +167,92 @@ func TestAddToQueue(t *testing.T) {
 
 		// 模拟任务生成间隔
 		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func TestAddNodeToQueue(t *testing.T) {
+	// 加载 kubeconfig 配置
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		log.Fatalf("无法加载 kubeconfig: %v", err)
+	}
+
+	// 创建 Kubernetes 客户端
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("无法创建 Kubernetes 客户端: %v", err)
+	}
+
+	// 创建 Redis 集群客户端
+	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs: []string{
+			"10.187.6.3:31000",
+			"10.187.6.4:31001",
+			"10.187.6.5:31002",
+			"10.187.6.3:31100",
+			"10.187.6.4:31101",
+			"10.187.6.5:31102",
+		},
+		Password: "pass12345",
+	})
+
+	// 检查 Redis 连接是否成功
+	ctx := context.Background()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+
+	// 分页获取节点数据并推送到公共队列
+	queueName := "task_queue" // 公共任务队列
+	pageSize := int64(50)     // 每页最大50条
+	continueToken := ""
+
+	for {
+		// 获取节点列表
+		nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+			Limit:    pageSize,
+			Continue: continueToken,
+		})
+		if err != nil {
+			log.Fatalf("无法获取节点列表: %v", err)
+		}
+
+		// 将一组节点数据打包成一个任务
+		nodeNames := make([]string, 0, len(nodes.Items))
+		for _, node := range nodes.Items {
+			nodeNames = append(nodeNames, node.Name)
+		}
+
+		// 创建任务
+		task := Task{
+			Type:    "node_batch", // 任务类型为 "node_batch"
+			Payload: nodeNames,    // 任务数据为节点名称列表
+		}
+
+		// 序列化任务
+		taskData, err := json.Marshal(task)
+		if err != nil {
+			log.Printf("Failed to marshal task: %v", err)
+			continue
+		}
+
+		// 推送任务到公共队列
+		err = redisClient.RPush(ctx, queueName, taskData).Err()
+		if err != nil {
+			log.Printf("Failed to push task to queue: %v", err)
+		} else {
+			fmt.Printf("Pushed task: %s\n", taskData)
+		}
+
+		// 如果没有更多的数据，退出循环
+		if nodes.Continue == "" {
+			break
+		}
+
+		// 更新 continueToken 以获取下一页数据
+		continueToken = nodes.Continue
 	}
 }
