@@ -26,7 +26,7 @@ func CheckNodeExistsFromBatchList(nodeName string, batchNodesList *corev1.NodeLi
 
 type BatchUpdateCreateOptions struct {
 	Clientset            *kubernetes.Clientset
-	CRDClient            dynamic.NamespaceableResourceInterface
+	CRDClient            *dynamic.NamespaceableResourceInterface
 	Nodes                *corev1.NodeList
 	ResourceNamesToTrack map[string]bool
 	Parallelism          int // 最大并行度，0 或 负值时表示无限制
@@ -72,7 +72,7 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 			}
 
 			resourceinfo.LoadNodeResourceInfoFromNode(nodeQuery, nodeResourceInfo)
-			err := resourceinfo.UpdateCreateNodeResourceInfo(opts.CRDClient, nodeResourceInfo)
+			err := resourceinfo.UpdateCreateNodeResourceInfo(*opts.CRDClient, nodeResourceInfo)
 			if err != nil {
 				errCh <- fmt.Errorf("节点 %s 处理失败: %w", n.Name, err)
 			}

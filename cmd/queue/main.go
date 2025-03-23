@@ -10,26 +10,25 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
+	"github.com/modcoco/OpsFlow/pkg/node"
 	"github.com/redis/go-redis/v9"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Task 定义任务结构体
 type Task struct {
-	Type    string `json:"type"`    // 任务类型
-	Payload any    `json:"payload"` // 任务数据
+	Type    string `json:"type"`
+	Payload any    `json:"payload"`
 }
 
-// TaskHandler 定义任务处理接口
 type TaskHandler interface {
 	Handle(payload any) error
 }
 
-// EmailHandler 处理邮件任务
 type EmailHandler struct{}
 
 func (h *EmailHandler) Handle(payload interface{}) error {
@@ -41,7 +40,6 @@ func (h *EmailHandler) Handle(payload interface{}) error {
 	return nil
 }
 
-// NotificationHandler 处理通知任务
 type NotificationHandler struct{}
 
 func (h *NotificationHandler) Handle(payload interface{}) error {
@@ -53,7 +51,6 @@ func (h *NotificationHandler) Handle(payload interface{}) error {
 	return nil
 }
 
-// ReportHandler 处理报告任务
 type ReportHandler struct{}
 
 func (h *ReportHandler) Handle(payload any) error {
@@ -65,31 +62,22 @@ func (h *ReportHandler) Handle(payload any) error {
 	return nil
 }
 
-// NodeBatchHandler 处理批量节点任务
 type NodeBatchHandler struct {
-	clientset *kubernetes.Clientset // 添加 Kubernetes 客户端字段
+	clientset *kubernetes.Clientset
+	crdClient *dynamic.NamespaceableResourceInterface
 }
 
-// NewNodeBatchHandler 创建 NodeBatchHandler
-func NewNodeBatchHandler(clientset *kubernetes.Clientset) *NodeBatchHandler {
+func NewNodeBatchHandler(clientset *kubernetes.Clientset, crdClient *dynamic.NamespaceableResourceInterface) *NodeBatchHandler {
 	return &NodeBatchHandler{
 		clientset: clientset,
+		crdClient: crdClient,
 	}
 }
 
 func (h *NodeBatchHandler) Handle(payload any) error {
-	payloadSlice, ok := payload.([]any)
-	if !ok {
-		return fmt.Errorf("invalid payload for node_batch task: %v", payload)
-	}
-
-	nodeNames := make([]string, 0, len(payloadSlice))
-	for _, item := range payloadSlice {
-		nodeName, ok := item.(string)
-		if !ok {
-			return fmt.Errorf("invalid node name in payload: %v", item)
-		}
-		nodeNames = append(nodeNames, nodeName)
+	nodeNames, err := extractNodeNames(payload)
+	if err != nil {
+		return fmt.Errorf("failed to extract node names: %v", err)
 	}
 
 	fmt.Printf("Processing node batch: %v\n", nodeNames)
@@ -101,25 +89,57 @@ func (h *NodeBatchHandler) Handle(payload any) error {
 		return fmt.Errorf("failed to list nodes: %v", err)
 	}
 
-	for _, node := range nodes.Items {
-		fmt.Printf("Node %s status: %v\n", node.Name, node.Status.Addresses)
+	resourceNamesToTrack := map[string]bool{
+		"cpu":            true,
+		"memory":         true,
+		"nvidia.com/gpu": true,
+	}
+
+	opts := node.BatchUpdateCreateOptions{
+		Clientset:            h.clientset,
+		CRDClient:            h.crdClient,
+		Nodes:                nodes,
+		ResourceNamesToTrack: resourceNamesToTrack,
+		Parallelism:          3,
+	}
+
+	if err := node.BatchAddNodeResourceInfo(opts); err != nil {
+		return fmt.Errorf("failed to batch update node resource info: %v", err)
 	}
 
 	return nil
 }
 
-// TaskProcessor 任务处理器
+func extractNodeNames(payload any) ([]string, error) {
+	payloadSlice, ok := payload.([]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid payload type: expected []any, got %T", payload)
+	}
+
+	nodeNames := make([]string, 0, len(payloadSlice))
+	for _, item := range payloadSlice {
+		nodeName, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid node name in payload: %v", item)
+		}
+		nodeNames = append(nodeNames, nodeName)
+	}
+
+	return nodeNames, nil
+}
+
+// 任务处理器
 type TaskProcessor struct {
 	handlers map[string]TaskHandler
 }
 
-func NewTaskProcessor(clientset *kubernetes.Clientset) *TaskProcessor {
+func NewTaskProcessor(clientset *kubernetes.Clientset, crdClient *dynamic.NamespaceableResourceInterface) *TaskProcessor {
 	return &TaskProcessor{
 		handlers: map[string]TaskHandler{
 			"email":        &EmailHandler{},
 			"notification": &NotificationHandler{},
 			"report":       &ReportHandler{},
-			"node_batch":   NewNodeBatchHandler(clientset), // 传入 Kubernetes 客户端
+			"node_batch":   NewNodeBatchHandler(clientset, crdClient), // 传入 Kubernetes 客户端
 		},
 	}
 }
@@ -147,6 +167,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("无法创建 Kubernetes 客户端: %v", err)
 	}
+
+	// 创建动态客户端
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("无法创建动态客户端: %v", err)
+	}
+
+	// 获取 CRD 客户端（用于管理 CRD）
+	crdClient := dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "opsflow.io",
+		Version:  "v1alpha1",
+		Resource: "noderesourceinfos",
+	})
 
 	// 创建 Redis 集群客户端
 	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
@@ -176,7 +209,7 @@ func main() {
 	// 启动 Worker Pool
 	workerCount := 3 // 设置 Worker 数量
 	var wg sync.WaitGroup
-	processor := NewTaskProcessor(clientset) // 传入 Kubernetes 客户端
+	processor := NewTaskProcessor(clientset, &crdClient) // 传入 Kubernetes 客户端
 
 	for i := range workerCount {
 		wg.Add(1)
@@ -191,13 +224,11 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	// 优雅退出
 	close(taskChannel)
 	wg.Wait()
 	log.Println("All workers have exited.")
 }
 
-// monitorTaskQueue 监控 Redis 任务队列并将任务发送到 Channel
 func monitorTaskQueue(ctx context.Context, client *redis.ClusterClient, queueName string, taskChannel chan<- Task) {
 	for {
 		select {
@@ -205,7 +236,6 @@ func monitorTaskQueue(ctx context.Context, client *redis.ClusterClient, queueNam
 			log.Println("Task monitoring stopped.")
 			return
 		default:
-			// 使用 BLPOP 阻塞式地从队列中获取任务
 			result, err := client.BLPop(ctx, 0, queueName).Result()
 			if err != nil {
 				log.Printf("Error while popping task from queue: %v", err)
@@ -226,7 +256,7 @@ func monitorTaskQueue(ctx context.Context, client *redis.ClusterClient, queueNam
 	}
 }
 
-// processTasks 从 Channel 中读取任务并处理
+// 从 Channel 中读取任务并处理
 func processTasks(ctx context.Context, workerID int, taskChannel <-chan Task, processor *TaskProcessor) {
 	for task := range taskChannel {
 		select {
@@ -234,14 +264,10 @@ func processTasks(ctx context.Context, workerID int, taskChannel <-chan Task, pr
 			log.Printf("Worker %d exiting...\n", workerID)
 			return
 		default:
-			// 处理任务
 			fmt.Printf("Worker %d processing task: %v\n", workerID, task.Payload)
 			if err := processor.Process(task); err != nil {
 				log.Printf("Worker %d failed to process task: %v\n", workerID, err)
 			}
-
-			// 模拟任务处理时间
-			time.Sleep(1 * time.Second)
 		}
 	}
 }

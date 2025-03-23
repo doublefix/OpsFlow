@@ -64,7 +64,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 
 	opts := node.BatchUpdateCreateOptions{
 		Clientset:            clientset,
-		CRDClient:            crdClient,
+		CRDClient:            &crdClient,
 		Nodes:                nodes,
 		ResourceNamesToTrack: resourceNamesToTrack,
 		Parallelism:          3,
