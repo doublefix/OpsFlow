@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
+	"github.com/modcoco/OpsFlow/pkg/queue"
+	"github.com/redis/go-redis/v9"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -24,30 +27,33 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 }
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	client, err := core.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	// redisClient := redis.NewClusterClient(&redis.ClusterOptions{
-	// 	Addrs: []string{
-	// 		"10.187.6.3:31000",
-	// 		"10.187.6.4:31001",
-	// 		"10.187.6.5:31002",
-	// 		"10.187.6.3:31100",
-	// 		"10.187.6.4:31101",
-	// 		"10.187.6.5:31102",
-	// 	},
-	// 	Password: "pass12345",
-	// })
-	// config := queue.TaskProcessorConfig{
-	// 	Clientset:   client.Core(),
-	// 	CRDClient:   crdClient,
-	// 	RedisClient: redisClient,
-	// 	WorkerCount: 3,
-	// 	QueueName:   "task_queue",
-	// }
-	// go queue.StartTaskQueueProcessor(config)
+	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs: []string{
+			"10.187.6.3:31000",
+			"10.187.6.4:31001",
+			"10.187.6.5:31002",
+			"10.187.6.3:31100",
+			"10.187.6.4:31101",
+			"10.187.6.5:31102",
+		},
+		Password: "pass12345",
+	})
+	config := queue.TaskProcessorConfig{
+		Clientset:   client.Core(),
+		CRDClient:   client.DynamicNRI(),
+		RedisClient: redisClient,
+		WorkerCount: 3,
+		QueueName:   "task_queue",
+	}
+	go queue.StartTaskQueueProcessor(ctx, config)
 
 	r := CreateGinRouter(client)
 	if err := r.Run(":8080"); err != nil {

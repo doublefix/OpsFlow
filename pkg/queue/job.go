@@ -57,11 +57,11 @@ func (h *ReportHandler) Handle(payload any) error {
 }
 
 type NodeBatchHandler struct {
-	clientset *kubernetes.Clientset
+	clientset kubernetes.Interface
 	crdClient *dynamic.NamespaceableResourceInterface
 }
 
-func NewNodeBatchHandler(clientset *kubernetes.Clientset, crdClient *dynamic.NamespaceableResourceInterface) *NodeBatchHandler {
+func NewNodeBatchHandler(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface) *NodeBatchHandler {
 	return &NodeBatchHandler{
 		clientset: clientset,
 		crdClient: crdClient,
@@ -127,7 +127,7 @@ type TaskProcessor struct {
 	handlers map[string]TaskHandler
 }
 
-func NewTaskProcessor(clientset *kubernetes.Clientset, crdClient *dynamic.NamespaceableResourceInterface) *TaskProcessor {
+func NewTaskProcessor(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface) *TaskProcessor {
 	return &TaskProcessor{
 		handlers: map[string]TaskHandler{
 			"email":        &EmailHandler{},

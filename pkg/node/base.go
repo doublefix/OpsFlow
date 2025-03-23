@@ -25,7 +25,7 @@ func CheckNodeExistsFromBatchList(nodeName string, batchNodesList *corev1.NodeLi
 }
 
 type BatchUpdateCreateOptions struct {
-	Clientset            *kubernetes.Clientset
+	Clientset            kubernetes.Interface
 	CRDClient            *dynamic.NamespaceableResourceInterface
 	Nodes                *corev1.NodeList
 	ResourceNamesToTrack map[string]bool

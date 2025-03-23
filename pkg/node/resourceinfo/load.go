@@ -14,7 +14,7 @@ import (
 )
 
 type NodeResourceQuery struct {
-	Clientset            *kubernetes.Clientset
+	Clientset            kubernetes.Interface
 	Node                 *v1.Node
 	ResourceNamesToTrack map[string]bool
 }

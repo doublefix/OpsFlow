@@ -3,10 +3,7 @@ package queue
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/redis/go-redis/v9"
 	"k8s.io/client-go/dynamic"
@@ -14,15 +11,14 @@ import (
 )
 
 type TaskProcessorConfig struct {
-	Clientset   *kubernetes.Clientset
+	Clientset   kubernetes.Interface
 	CRDClient   dynamic.NamespaceableResourceInterface
 	RedisClient *redis.ClusterClient
 	WorkerCount int
 	QueueName   string
 }
 
-func StartTaskQueueProcessor(config TaskProcessorConfig) {
-	ctx := context.Background()
+func StartTaskQueueProcessor(ctx context.Context, config TaskProcessorConfig) {
 	if err := config.RedisClient.Ping(ctx).Err(); err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
@@ -42,11 +38,9 @@ func StartTaskQueueProcessor(config TaskProcessorConfig) {
 		}(i)
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
+	<-ctx.Done()
 	close(taskChannel)
+
 	wg.Wait()
 	log.Println("All workers have exited.")
 }
