@@ -8,6 +8,7 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
 	"github.com/modcoco/OpsFlow/pkg/queue"
+	"github.com/modcoco/OpsFlow/pkg/tasks"
 	"github.com/redis/go-redis/v9"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -54,6 +55,9 @@ func main() {
 		QueueName:   "task_queue",
 	}
 	go queue.StartTaskQueueProcessor(ctx, config)
+
+	tasksConfig := tasks.InitializeTasks()
+	tasks.StartTaskScheduler(redisClient, tasksConfig)
 
 	r := CreateGinRouter(client)
 	if err := r.Run(":8080"); err != nil {
