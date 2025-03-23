@@ -7,32 +7,48 @@ import (
 	"log"
 	"time"
 
+	"github.com/modcoco/OpsFlow/pkg/crd"
 	"github.com/modcoco/OpsFlow/pkg/queue"
 	"github.com/redis/go-redis/v9"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-type TaskFunc func() error
+type TaskFunc func(ctx context.Context) error
 
-func task1Func() error {
+func task1Func(ctx context.Context) error {
 	log.Println("Executing task 1 specific logic...")
-	time.Sleep(70 * time.Second)
-	log.Println("Task 1 completed")
+	select {
+	case <-time.After(70 * time.Second):
+		log.Println("Task 1 completed")
+	case <-ctx.Done():
+		log.Println("Task 1 canceled")
+		return ctx.Err()
+	}
 	return nil
 }
 
-func task2Func() error {
+func task2Func(ctx context.Context) error {
 	log.Println("Executing task 2 specific logic...")
-	time.Sleep(3 * time.Second)
-	log.Println("Task 2 completed")
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println("Task 2 completed")
+	case <-ctx.Done():
+		log.Println("Task 2 canceled")
+		return ctx.Err()
+	}
 	return nil
 }
 
-func task3Func() error {
+func task3Func(ctx context.Context) error {
 	log.Println("Executing task 3 specific logic...")
-	time.Sleep(4 * time.Second)
-	log.Println("Task 3 completed")
+	select {
+	case <-time.After(4 * time.Second):
+		log.Println("Task 3 completed")
+	case <-ctx.Done():
+		log.Println("Task 3 canceled")
+		return ctx.Err()
+	}
 	return nil
 }
 
@@ -43,7 +59,7 @@ type QueueConfig struct {
 	PageSize    int64
 }
 
-func AddNodeCheckJobToQueue(ctx context.Context, config *QueueConfig) error {
+func UpdateNodeInfo(ctx context.Context, config *QueueConfig) error {
 	continueToken := ""
 
 	for {
@@ -85,5 +101,18 @@ func AddNodeCheckJobToQueue(ctx context.Context, config *QueueConfig) error {
 		continueToken = nodes.Continue
 	}
 
+	return nil
+}
+
+func DeleteNonExistingNodeResourceInfoTask(ctx context.Context, opts crd.DeleteNodeResourceInfoOptions) error {
+	log.Println("Running DeleteNonExistingNodeResourceInfo task...")
+
+	err := crd.DeleteNonExistingNodeResourceInfo(opts)
+	if err != nil {
+		log.Printf("DeleteNonExistingNodeResourceInfo failed: %v", err)
+		return err
+	}
+
+	log.Println("DeleteNonExistingNodeResourceInfo task completed")
 	return nil
 }

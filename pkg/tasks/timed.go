@@ -33,7 +33,7 @@ func renewLock(redisClient *redis.ClusterClient, lockKey string, lockExpire time
 	}
 }
 
-func runTask(redisClient *redis.ClusterClient, taskName string, taskFunc TaskFunc, wg *sync.WaitGroup) {
+func runTask(ctx context.Context, redisClient *redis.ClusterClient, taskName string, taskFunc TaskFunc, wg *sync.WaitGroup) {
 	defer wg.Done() // 任务完成后通知 WaitGroup
 
 	lockKey := "job_lock:" + taskName
@@ -59,7 +59,7 @@ func runTask(redisClient *redis.ClusterClient, taskName string, taskFunc TaskFun
 
 	// 执行任务函数
 	log.Printf("Running task %s...", taskName)
-	err = taskFunc()
+	err = taskFunc(ctx)
 	if err != nil {
 		log.Printf("Task %s failed: %v", taskName, err)
 	}
@@ -75,18 +75,25 @@ func runTask(redisClient *redis.ClusterClient, taskName string, taskFunc TaskFun
 	log.Printf("Task %s completed", taskName)
 }
 
-func scheduleTask(redisClient *redis.ClusterClient, taskName string, tickerDuration time.Duration, taskFunc TaskFunc, waitForCompletion bool) {
+func scheduleTask(ctx context.Context, redisClient *redis.ClusterClient, taskName string, tickerDuration time.Duration, taskFunc TaskFunc, waitForCompletion bool) {
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 
 	var wg sync.WaitGroup
 
-	for range ticker.C {
-		if waitForCompletion {
-			wg.Wait()
-		}
+	for {
+		select {
+		case <-ticker.C:
+			if waitForCompletion {
+				wg.Wait() // 等待上一个任务完成
+			}
 
-		wg.Add(1)
-		go runTask(redisClient, taskName, taskFunc, &wg)
+			wg.Add(1)
+			go runTask(ctx, redisClient, taskName, taskFunc, &wg)
+		case <-ctx.Done():
+			// 上下文取消，停止调度
+			log.Printf("Stopping task scheduler for %s due to context cancellation", taskName)
+			return
+		}
 	}
 }
