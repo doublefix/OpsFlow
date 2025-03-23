@@ -56,7 +56,7 @@ func main() {
 	}
 	go queue.StartTaskQueueProcessor(ctx, config)
 
-	tasksConfig := tasks.InitializeTasks()
+	tasksConfig := tasks.InitializeTasks(client.Core(), redisClient)
 	tasks.StartTaskScheduler(redisClient, tasksConfig)
 
 	r := CreateGinRouter(client)

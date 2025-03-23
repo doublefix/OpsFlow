@@ -79,15 +79,14 @@ func scheduleTask(redisClient *redis.ClusterClient, taskName string, tickerDurat
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 
-	var wg sync.WaitGroup // 用于等待任务完成
+	var wg sync.WaitGroup
 
 	for range ticker.C {
 		if waitForCompletion {
-			// 如果配置为等待模式，等待上一个任务完成
 			wg.Wait()
 		}
 
-		wg.Add(1) // 标记新任务开始
+		wg.Add(1)
 		go runTask(redisClient, taskName, taskFunc, &wg)
 	}
 }

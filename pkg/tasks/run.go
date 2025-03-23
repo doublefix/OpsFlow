@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"k8s.io/client-go/kubernetes"
 )
 
 type TaskConfig struct {
@@ -12,11 +13,18 @@ type TaskConfig struct {
 	WaitForCompletion bool          // 是否等待上一个任务完成
 }
 
-func InitializeTasks() map[string]TaskConfig {
+func InitializeTasks(clientset kubernetes.Interface, redisClient *redis.ClusterClient) map[string]TaskConfig {
+	// config := &QueueConfig{
+	// 	Clientset:   clientset,
+	// 	RedisClient: redisClient,
+	// 	QueueName:   "task_queue",
+	// 	PageSize:    50,
+	// }
 	return map[string]TaskConfig{
-		"task1": {10 * time.Second, task1Func, true},  // 每 10 秒执行一次，等待上一个任务完成
-		"task2": {20 * time.Second, task2Func, false}, // 每 20 秒执行一次，不等待上一个任务完成
-		"task3": {30 * time.Second, task3Func, true},  // 每 30 秒执行一次，等待上一个任务完成
+		"task1": {10 * time.Second, task1Func, true},
+		"task2": {20 * time.Second, task2Func, false},
+		"task3": {30 * time.Second, task3Func, true},
+		// "add_update_node_info": {30 * time.Second, AddNodeCheckJobToQueue(ctx, config), true},
 	}
 }
 
