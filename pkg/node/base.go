@@ -43,6 +43,12 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 		semaphore = nil // 不限并发数
 	}
 
+	namespace, err := opts.Clientset.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Get Namespace error: %v", err)
+	}
+	log.Printf("Namespace: %s", namespace.UID)
+
 	for _, node := range opts.Nodes.Items {
 		wg.Add(1)
 		go func(n corev1.Node) {
@@ -72,7 +78,7 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 			}
 
 			resourceinfo.LoadNodeResourceInfoFromNode(nodeQuery, nodeResourceInfo)
-			err := resourceinfo.UpdateCreateNodeResourceInfo(*opts.CRDClient, nodeResourceInfo)
+			err := resourceinfo.UpdateCreateNodeResourceInfo(*opts.CRDClient, nodeResourceInfo, string(namespace.UID))
 			if err != nil {
 				errCh <- fmt.Errorf("节点 %s 处理失败: %w", n.Name, err)
 			}

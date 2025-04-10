@@ -21,7 +21,7 @@ const (
 )
 
 // 更新或创建 NodeResourceInfo CRD
-func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo) error {
+func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
 	var retryCount int
 
 	for {
@@ -30,7 +30,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// CRD 不存在，则创建
-				return createNodeResourceInfo(crdClient, nodeResourceInfo)
+				return createNodeResourceInfo(crdClient, nodeResourceInfo, clusterId)
 			}
 			return fmt.Errorf("获取 NodeResourceInfo 失败: %w", err)
 		}
@@ -78,7 +78,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 }
 
 // createNodeResourceInfo 创建新的 NodeResourceInfo CRD
-func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo) error {
+func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
 	if err != nil {
 		return fmt.Errorf("无法转换 NodeResourceInfo 对象: %w", err)
