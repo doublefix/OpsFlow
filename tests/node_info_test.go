@@ -84,3 +84,25 @@ func TestGetNodeResources(t *testing.T) {
 
 	}
 }
+
+func TestGetNamespaceUID(t *testing.T) {
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		log.Fatalf("无法加载 kubeconfig: %v", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("无法创建 Kubernetes 客户端: %v", err)
+	}
+
+	namespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Println(namespace.GetUID())
+}
