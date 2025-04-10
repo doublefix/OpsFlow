@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package api;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/any.proto";
+
+option go_package = ".;api";
+
+// ---------------------------------------------
+// 公共结构定义
+// ---------------------------------------------
+
+// 通用响应结构
+message GenericResponse {
+    int32 code = 1;                      // 0 成功，非 0 为业务错误码
+    string message = 2;                  // 提示信息或错误描述
+    google.protobuf.Any data = 3;        // 实际返回数据（如 AddNodeResponse 等）
+}
+
+// 错误响应结构（用于内部调试日志或扩展场景）
+message ErrorResponse {
+    string error = 1;                    // 错误类型（如 InvalidArgument）
+    string message = 2;                  // 错误详情
+    int32 status_code = 3;               // 状态码（HTTP 对应码或业务码）
+    google.protobuf.Struct details = 4;  // 可选的错误上下文信息
+}
+
+// 节点资源定义
+message NodeResource {
+    string resource_name = 1;
+    string capacity = 2;                 // 高精度容量值，字符串格式
+    string allocatable = 3;
+    string unit = 4;
+    google.protobuf.Struct properties = 5;
+    bool is_removed = 6;        // 是否应该被删除
+}
+
+// 节点污点定义
+message NodeTaint {
+    string key = 1;
+    string value = 2;
+    string effect = 3;                   // NoSchedule | PreferNoSchedule | NoExecute
+}
+
+// ---------------------------------------------
+// 节点请求与响应定义
+// ---------------------------------------------
+
+// 添加节点请求
+message AddNodeRequest {
+    string node_name = 1;
+    string cluster_id = 2;
+    string node_status = 3;
+    bool unschedulable = 4;
+    map<string, string> labels = 5;
+    map<string, string> annotations = 6;
+    repeated NodeTaint taints = 7;
+    repeated NodeResource resources = 8;
+}
+
+// 添加节点响应（嵌入 GenericResponse.data 中）
+message AddNodeResponse {
+    int64 id = 1;
+    string cluster_id = 2;
+    string node_name = 3;
+    string node_status = 4;
+    bool unschedulable = 5;
+    bool is_deleted = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+    map<string, string> labels = 9;
+    map<string, string> annotations = 10;
+    repeated NodeTaint taints = 11;
+    repeated NodeResource resources = 12;
+}
+
+// 更新节点请求
+message UpdateNodeRequest {
+    string node_name = 1;
+    string cluster_id = 2;
+    string node_status = 3;
+    bool unschedulable = 4;
+    map<string, string> labels = 5;
+    map<string, string> annotations = 6;
+    repeated NodeTaint taints = 7;
+    repeated NodeResource resources = 8;
+}
+
+// 更新节点响应（嵌入 GenericResponse.data 中）
+message UpdateNodeResponse {
+    int64 id = 1;
+    string node_name = 2;
+    string node_status = 3;
+    bool unschedulable = 4;
+    google.protobuf.Timestamp updated_at = 5;
+    map<string, string> labels = 6;
+    map<string, string> annotations = 7;
+    repeated NodeTaint taints = 8;
+    repeated NodeResource resources = 9;
+}
+
+// 删除节点请求
+message DeleteNodeRequest {
+    string node_name = 1;
+    string cluster_id = 2;
+}
+
+// 删除节点响应（嵌入 GenericResponse.data 中）
+message DeleteNodeResponse {
+    string node_name = 1;
+    string cluster_id = 2;
+    bool success = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+}
+
+message NodeHeartbeatRequest {
+    string cluster_id = 1;
+    string node_name = 2;
+    string node_status = 3;  // 节点当前状态
+}
+
+// 节点心跳响应（嵌入 GenericResponse.data 中）
+message NodeHeartbeatResponse {
+    string cluster_id = 1;
+    string node_name = 2;
+    google.protobuf.Timestamp last_heartbeat_time = 3;
+    bool requires_update = 4;  // 服务端是否要求节点更新信息
+}
+
+// ---------------------------------------------
+// 节点管理服务接口
+// ---------------------------------------------
+
+service NodeManager {
+    rpc AddNode (AddNodeRequest) returns (GenericResponse);
+    rpc UpdateNode (UpdateNodeRequest) returns (GenericResponse);
+    rpc DeleteNode (DeleteNodeRequest) returns (GenericResponse);
+    rpc Heartbeat (NodeHeartbeatRequest) returns (GenericResponse);
+}
