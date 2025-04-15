@@ -10,6 +10,8 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/queue"
 	"github.com/modcoco/OpsFlow/pkg/tasks"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -36,6 +38,15 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
+	conn, err := grpc.NewClient(
+		"localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // 不启用安全连接
+	)
+	if err != nil {
+		log.Fatalf("did not connect to rpc: %v", err)
+	}
+	defer conn.Close()
+
 	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs: []string{
 			"10.187.6.3:31000",
@@ -50,17 +61,18 @@ func main() {
 	config := queue.TaskProcessorConfig{
 		Clientset:   client.Core(),
 		CRDClient:   client.DynamicNRI(),
+		RpcConn:     conn,
 		RedisClient: redisClient,
 		WorkerCount: 1,
 		QueueName:   "task_queue",
 	}
 	go queue.StartTaskQueueProcessor(ctx, config)
 
-	tasksConfig := tasks.InitializeTasks(client, redisClient)
+	tasksConfig := tasks.InitializeTasks(client, redisClient, conn)
 	tasks.StartTaskScheduler(redisClient, tasksConfig)
 
 	r := CreateGinRouter(client)
-	if err := r.Run(":8080"); err != nil {
+	if err := r.Run(":8090"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

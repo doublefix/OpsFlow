@@ -9,6 +9,7 @@ import (
 
 	"github.com/modcoco/OpsFlow/pkg/node"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -57,14 +58,16 @@ func (h *ReportHandler) Handle(payload any) error {
 }
 
 type NodeBatchHandler struct {
-	clientset kubernetes.Interface
-	crdClient *dynamic.NamespaceableResourceInterface
+	clientset  kubernetes.Interface
+	crdClient  *dynamic.NamespaceableResourceInterface
+	grpcClient *grpc.ClientConn
 }
 
-func NewNodeBatchHandler(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface) *NodeBatchHandler {
+func NewNodeBatchHandler(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn) *NodeBatchHandler {
 	return &NodeBatchHandler{
-		clientset: clientset,
-		crdClient: crdClient,
+		clientset:  clientset,
+		crdClient:  crdClient,
+		grpcClient: grpcClient,
 	}
 }
 
@@ -92,6 +95,7 @@ func (h *NodeBatchHandler) Handle(payload any) error {
 	opts := node.BatchUpdateCreateOptions{
 		Clientset:            h.clientset,
 		CRDClient:            h.crdClient,
+		GRPCClient:           h.grpcClient,
 		Nodes:                nodes,
 		ResourceNamesToTrack: resourceNamesToTrack,
 		Parallelism:          3,
@@ -127,13 +131,13 @@ type TaskProcessor struct {
 	handlers map[string]TaskHandler
 }
 
-func NewTaskProcessor(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface) *TaskProcessor {
+func NewTaskProcessor(clientset kubernetes.Interface, crdClient *dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn) *TaskProcessor {
 	return &TaskProcessor{
 		handlers: map[string]TaskHandler{
 			"email":        &EmailHandler{},
 			"notification": &NotificationHandler{},
 			"report":       &ReportHandler{},
-			"node_batch":   NewNodeBatchHandler(clientset, crdClient), // 传入 Kubernetes 客户端
+			"node_batch":   NewNodeBatchHandler(clientset, crdClient, grpcClient), // 传入 Kubernetes 客户端
 		},
 	}
 }

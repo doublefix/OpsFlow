@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
+	pb "github.com/modcoco/OpsFlow/pkg/apis/proto"
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +24,7 @@ const (
 )
 
 // 更新或创建 NodeResourceInfo CRD
-func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
+func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
 	var retryCount int
 
 	for {
@@ -30,7 +33,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// CRD 不存在，则创建
-				return createNodeResourceInfo(crdClient, nodeResourceInfo, clusterId)
+				return createNodeResourceInfo(crdClient, grpcClient, nodeResourceInfo, clusterId)
 			}
 			return fmt.Errorf("获取 NodeResourceInfo 失败: %w", err)
 		}
@@ -57,6 +60,57 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 		err = updateNodeResourceInfo(crdClient, existingResourceInfo, nodeResourceInfo)
 		if err == nil {
 			// TODO
+			c := pb.NewNodeManagerClient(grpcClient)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			resources := make([]*pb.NodeResource, 0, len(nodeResourceInfo.Spec.Resources))
+			for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
+				var capacity, allocatable, unit string
+
+				switch resourceName {
+				case "cpu":
+					capacity = strings.TrimSuffix(resourceInfo.Total, "m")
+					allocatable = strings.TrimSuffix(resourceInfo.Allocatable, "m")
+					unit = "m"
+				case "memory":
+					capacity = strings.TrimSuffix(resourceInfo.Total, "Mi")
+					allocatable = strings.TrimSuffix(resourceInfo.Allocatable, "Mi")
+					unit = "Mi"
+				default:
+					capacity = resourceInfo.Total
+					allocatable = resourceInfo.Allocatable
+					unit = ""
+				}
+				resources = append(resources, &pb.NodeResource{
+					ResourceName: resourceName,
+					Capacity:     capacity,
+					Allocatable:  allocatable,
+					Unit:         unit,
+					IsRemoved:    false,
+				})
+			}
+			addResp, err := c.UpdateNode(ctx, &pb.UpdateNodeRequest{
+				NodeName:   nodeResourceInfo.Name,
+				ClusterId:  clusterId,
+				NodeStatus: "Ready",
+				Resources:  resources,
+			})
+
+			if err != nil {
+				log.Printf("Failed to call AddNode: %v", err)
+				return fmt.Errorf("调用 rpc AddNode 失败: %w", err)
+			}
+			genericResp := addResp
+			log.Printf("Received response: %v", genericResp)
+
+			var addNodeResp pb.AddNodeResponse
+			if err := genericResp.GetData().UnmarshalTo(&addNodeResp); err != nil {
+				log.Printf("Failed to unmarshal AddNodeResponse from data: %v", err)
+			}
+			log.Printf("Add node: %s", addNodeResp.GetNodeName())
+
+			log.Printf("NodeResourceInfo %s 已创建", nodeResourceInfo.Name)
 			return nil // 更新成功
 		}
 
@@ -78,7 +132,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 }
 
 // createNodeResourceInfo 创建新的 NodeResourceInfo CRD
-func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
+func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
 	if err != nil {
 		return fmt.Errorf("无法转换 NodeResourceInfo 对象: %w", err)
@@ -92,7 +146,58 @@ func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, no
 		return fmt.Errorf("无法创建 NodeResourceInfo CRD: %w", err)
 	}
 
-	// TODO
+	// TODO：Add Node
+	c := pb.NewNodeManagerClient(grpcClient)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resources := make([]*pb.NodeResource, 0, len(nodeResourceInfo.Spec.Resources))
+	for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
+		var capacity, allocatable, unit string
+
+		switch resourceName {
+		case "cpu":
+			capacity = strings.TrimSuffix(resourceInfo.Total, "m")
+			allocatable = strings.TrimSuffix(resourceInfo.Allocatable, "m")
+			unit = "m"
+		case "memory":
+			capacity = strings.TrimSuffix(resourceInfo.Total, "Mi")
+			allocatable = strings.TrimSuffix(resourceInfo.Allocatable, "Mi")
+			unit = "Mi"
+		default:
+			capacity = resourceInfo.Total
+			allocatable = resourceInfo.Allocatable
+			unit = ""
+		}
+		resources = append(resources, &pb.NodeResource{
+			ResourceName: resourceName,
+			Capacity:     capacity,
+			Allocatable:  allocatable,
+			Unit:         unit,
+			IsRemoved:    false,
+		})
+	}
+
+	addResp, err := c.AddNode(ctx, &pb.AddNodeRequest{
+		NodeName:   nodeResourceInfo.Name,
+		ClusterId:  clusterId,
+		NodeStatus: "Ready",
+		Resources:  resources,
+	})
+
+	if err != nil {
+		log.Printf("Failed to call AddNode: %v", err)
+		return fmt.Errorf("调用 rpc AddNode 失败: %w", err)
+	}
+	genericResp := addResp
+	log.Printf("Received response: %v", genericResp)
+
+	var addNodeResp pb.AddNodeResponse
+	if err := genericResp.GetData().UnmarshalTo(&addNodeResp); err != nil {
+		log.Printf("Failed to unmarshal AddNodeResponse from data: %v", err)
+	}
+	log.Printf("Add node: %s", addNodeResp.GetNodeName())
+
 	log.Printf("NodeResourceInfo %s 已创建", nodeResourceInfo.Name)
 	return nil
 }

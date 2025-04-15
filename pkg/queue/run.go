@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -13,6 +14,7 @@ import (
 type TaskProcessorConfig struct {
 	Clientset   kubernetes.Interface
 	CRDClient   dynamic.NamespaceableResourceInterface
+	RpcConn     *grpc.ClientConn
 	RedisClient *redis.ClusterClient
 	WorkerCount int
 	QueueName   string
@@ -28,7 +30,7 @@ func StartTaskQueueProcessor(ctx context.Context, config TaskProcessorConfig) {
 	go monitorTaskQueue(ctx, config.RedisClient, config.QueueName, taskChannel)
 
 	var wg sync.WaitGroup
-	processor := NewTaskProcessor(config.Clientset, &config.CRDClient)
+	processor := NewTaskProcessor(config.Clientset, &config.CRDClient, config.RpcConn)
 
 	for i := range config.WorkerCount {
 		wg.Add(1)

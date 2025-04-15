@@ -7,6 +7,7 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/crd"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 )
 
 type TaskConfig struct {
@@ -15,7 +16,7 @@ type TaskConfig struct {
 	WaitForCompletion bool          // 是否等待上一个任务完成
 }
 
-func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient) map[string]TaskConfig {
+func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *grpc.ClientConn) map[string]TaskConfig {
 	updateNodeInfoConfig := &QueueConfig{
 		Clientset:   clent.Core(),
 		RedisClient: redisClient,
@@ -26,6 +27,7 @@ func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient) map[st
 	deleteNodeInfoConfig := crd.DeleteNodeResourceInfoOptions{
 		CRDClient:   clent.DynamicNRI(),
 		KubeClient:  clent.Core(),
+		GRPCClient:  grpc,
 		Parallelism: 3,
 	}
 

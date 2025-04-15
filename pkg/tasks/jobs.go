@@ -107,7 +107,13 @@ func UpdateNodeInfo(ctx context.Context, config *QueueConfig) error {
 func DeleteNonExistingNodeResourceInfoTask(ctx context.Context, opts crd.DeleteNodeResourceInfoOptions) error {
 	log.Println("Running DeleteNonExistingNodeResourceInfo task...")
 
-	err := crd.DeleteNonExistingNodeResourceInfo(opts)
+	namespace, err := opts.KubeClient.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Get Namespace error: %v", err)
+	}
+	log.Printf("Namespace: %s", namespace.UID)
+
+	err = crd.DeleteNonExistingNodeResourceInfo(opts, string(namespace.UID))
 	if err != nil {
 		log.Printf("DeleteNonExistingNodeResourceInfo failed: %v", err)
 		return err

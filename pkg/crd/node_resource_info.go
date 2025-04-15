@@ -1,12 +1,16 @@
 package crd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
+	pb "github.com/modcoco/OpsFlow/pkg/apis/proto"
 	"github.com/modcoco/OpsFlow/pkg/node"
+	"google.golang.org/grpc"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -14,11 +18,12 @@ import (
 type DeleteNodeResourceInfoOptions struct {
 	CRDClient   dynamic.ResourceInterface // CRD 客户端
 	KubeClient  kubernetes.Interface      // Kubernetes 客户端
+	GRPCClient  *grpc.ClientConn          // gRPC 客户端
 	Parallelism int                       // 并发数
 }
 
 // 批量删除不存在的 NodeResourceInfo CRD 实例
-func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions) error {
+func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions, namespace string) error {
 	var continueToken string
 	var wg sync.WaitGroup
 	errCh := make(chan error, 100) // 缓冲通道，防止阻塞
@@ -56,7 +61,7 @@ func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions) error
 		}
 
 		// 4. 并发删除不存在的 CRD 实例
-		deleteCRDsConcurrently(opts.CRDClient, nonExistingNodes, semaphore, &wg, errCh)
+		deleteCRDsConcurrently(opts, nonExistingNodes, semaphore, &wg, namespace, errCh)
 
 		if newContinueToken == "" {
 			break
@@ -76,10 +81,11 @@ func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions) error
 
 // 并发删除 CRD 实例
 func deleteCRDsConcurrently(
-	crdClient dynamic.ResourceInterface,
+	opts DeleteNodeResourceInfoOptions,
 	nodeNames []string,
 	semaphore chan struct{},
 	wg *sync.WaitGroup,
+	clusterId string,
 	errCh chan<- error,
 ) {
 	for _, nodeName := range nodeNames {
@@ -92,11 +98,30 @@ func deleteCRDsConcurrently(
 				defer func() { <-semaphore }() // 释放并发槽
 			}
 
-			if err := DeleteCRD(crdClient, n); err != nil {
+			if err := DeleteCRD(opts.CRDClient, n); err != nil {
 				log.Printf("无法删除 NodeResourceInfo CRD %s: %v", n, err)
 				errCh <- fmt.Errorf("删除失败: %s, 错误: %w", n, err)
 			} else {
-				// TODO
+				// TODO: 删除 nodeName 对应的 Node CRD
+				c := pb.NewNodeManagerClient(opts.GRPCClient)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+
+				deleteResp, err := c.DeleteNode(ctx, &pb.DeleteNodeRequest{
+					NodeName:  nodeName,
+					ClusterId: clusterId,
+				})
+				if err != nil {
+					log.Fatalf("could not add node: %v", err)
+				}
+
+				genericResp := deleteResp
+				log.Printf("Received response: %v", genericResp)
+
+				var deleteNodeResp pb.DeleteNodeResponse
+				if err := genericResp.GetData().UnmarshalTo(&deleteNodeResp); err != nil {
+					log.Fatalf("Failed to unmarshal deleteNodeResponse from data: %v", err)
+				}
 				log.Printf("已删除 NodeResourceInfo CRD %s", n)
 			}
 		}(nodeName)

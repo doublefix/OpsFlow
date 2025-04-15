@@ -93,7 +93,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := crd.DeleteNonExistingNodeResourceInfo(optsDelCRD); err != nil {
+		if err := crd.DeleteNonExistingNodeResourceInfo(optsDelCRD, "default"); err != nil {
 			errCh <- fmt.Errorf("删除 NodeResourceInfo 失败: %w", err)
 		}
 	}()
