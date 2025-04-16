@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type DeleteNodeResourceInfoOptions struct {
+type NodeResourceInfoOptions struct {
 	CRDClient   dynamic.ResourceInterface // CRD 客户端
 	KubeClient  kubernetes.Interface      // Kubernetes 客户端
 	GRPCClient  *grpc.ClientConn          // gRPC 客户端
@@ -23,7 +23,7 @@ type DeleteNodeResourceInfoOptions struct {
 }
 
 // 批量删除不存在的 NodeResourceInfo CRD 实例
-func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions, namespace string) error {
+func DeleteNonExistingNodeResourceInfo(opts NodeResourceInfoOptions, clusterId string) error {
 	var continueToken string
 	var wg sync.WaitGroup
 	errCh := make(chan error, 100) // 缓冲通道，防止阻塞
@@ -61,7 +61,7 @@ func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions, names
 		}
 
 		// 4. 并发删除不存在的 CRD 实例
-		deleteCRDsConcurrently(opts, nonExistingNodes, semaphore, &wg, namespace, errCh)
+		deleteCRDsConcurrently(opts, nonExistingNodes, semaphore, &wg, clusterId, errCh)
 
 		if newContinueToken == "" {
 			break
@@ -81,7 +81,7 @@ func DeleteNonExistingNodeResourceInfo(opts DeleteNodeResourceInfoOptions, names
 
 // 并发删除 CRD 实例
 func deleteCRDsConcurrently(
-	opts DeleteNodeResourceInfoOptions,
+	opts NodeResourceInfoOptions,
 	nodeNames []string,
 	semaphore chan struct{},
 	wg *sync.WaitGroup,
@@ -126,4 +126,103 @@ func deleteCRDsConcurrently(
 			}
 		}(nodeName)
 	}
+}
+
+func NodeHeartbeat(opts NodeResourceInfoOptions, clusterId string) error {
+	if opts.CRDClient == nil {
+		return errors.New("CRD client is nil")
+	}
+	if opts.GRPCClient == nil {
+		return errors.New("gRPC client is nil")
+	}
+	if clusterId == "" {
+		return errors.New("clusterId is empty")
+	}
+
+	var (
+		continueToken string
+		errCh         = make(chan error, 100)
+		wg            sync.WaitGroup
+	)
+
+	semaphore := make(chan struct{}, opts.Parallelism)
+	if opts.Parallelism <= 0 {
+		semaphore = nil // 无限并发
+	}
+
+	c := pb.NewNodeManagerClient(opts.GRPCClient)
+
+	for {
+		crdList, newContinueToken, err := GetCRDList(opts.CRDClient, continueToken)
+		if err != nil {
+			return fmt.Errorf("failed to list CRD instances: %w", err)
+		}
+
+		nodeNames := make([]string, 0, len(crdList.Items))
+		for _, crd := range crdList.Items {
+			nodeName := crd.GetName()
+			if nodeName != "" {
+				nodeNames = append(nodeNames, nodeName)
+			}
+		}
+
+		if len(nodeNames) == 0 {
+			if newContinueToken == "" {
+				break
+			}
+			continueToken = newContinueToken
+			continue
+		}
+
+		// 并发对每个 nodeName 发起心跳
+		for _, nodeName := range nodeNames {
+			if semaphore != nil {
+				semaphore <- struct{}{}
+			}
+			wg.Add(1)
+
+			go func(name string) {
+				defer wg.Done()
+				if semaphore != nil {
+					defer func() { <-semaphore }()
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+
+				resp, err := c.Heartbeat(ctx, &pb.NodeHeartbeatRequest{
+					NodeName:  name,
+					ClusterId: clusterId,
+				})
+				if err != nil {
+					errCh <- fmt.Errorf("heartbeat failed for node %q: %w", name, err)
+					return
+				}
+
+				log.Printf("Heartbeat response for node %s: %v", name, resp)
+
+				var parsedResp pb.NodeHeartbeatResponse
+				if err := resp.GetData().UnmarshalTo(&parsedResp); err != nil {
+					errCh <- fmt.Errorf("unmarshal failed for node %q: %w", name, err)
+					return
+				}
+
+				log.Printf("Parsed Heartbeat response for node %s: %+v", name, &parsedResp)
+			}(nodeName)
+		}
+
+		if newContinueToken == "" {
+			break
+		}
+		continueToken = newContinueToken
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var allErrors []error
+	for err := range errCh {
+		allErrors = append(allErrors, err)
+	}
+	return errors.Join(allErrors...)
 }

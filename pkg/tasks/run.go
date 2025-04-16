@@ -24,7 +24,7 @@ func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *
 		PageSize:    50,
 	}
 
-	deleteNodeInfoConfig := crd.DeleteNodeResourceInfoOptions{
+	nodeInfoConfig := crd.NodeResourceInfoOptions{
 		CRDClient:   clent.DynamicNRI(),
 		KubeClient:  clent.Core(),
 		GRPCClient:  grpc,
@@ -38,8 +38,8 @@ func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *
 		"task2": {20 * time.Second, func(ctx context.Context) error {
 			return task2Func(ctx)
 		}, false},
-		"task3": {30 * time.Second, func(ctx context.Context) error {
-			return task3Func(ctx)
+		"node_heartbeat": {30 * time.Second, func(ctx context.Context) error {
+			return NodeHeartbeat(ctx, nodeInfoConfig)
 		}, true},
 		"add_update_node_info": {
 			Duration: 30 * time.Second,
@@ -51,7 +51,7 @@ func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *
 		"del_node_info": {
 			Duration: 40 * time.Second,
 			TaskFunc: func(ctx context.Context) error {
-				return DeleteNonExistingNodeResourceInfoTask(ctx, deleteNodeInfoConfig)
+				return DeleteNonExistingNodeResourceInfoTask(ctx, nodeInfoConfig)
 			},
 			WaitForCompletion: true,
 		},

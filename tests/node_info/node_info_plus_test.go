@@ -70,7 +70,7 @@ func TestCreateOrUpdateNodeResourceInfo(t *testing.T) {
 		Parallelism:          3,
 	}
 
-	optsDelCRD := crd.DeleteNodeResourceInfoOptions{
+	optsDelCRD := crd.NodeResourceInfoOptions{
 		CRDClient:   crdClient,
 		KubeClient:  clientset,
 		Parallelism: 3,

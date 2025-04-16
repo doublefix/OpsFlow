@@ -40,15 +40,22 @@ func task2Func(ctx context.Context) error {
 	return nil
 }
 
-func task3Func(ctx context.Context) error {
-	log.Println("Executing task 3 specific logic...")
-	select {
-	case <-time.After(4 * time.Second):
-		log.Println("Task 3 completed")
-	case <-ctx.Done():
-		log.Println("Task 3 canceled")
-		return ctx.Err()
+func NodeHeartbeat(ctx context.Context, opts crd.NodeResourceInfoOptions) error {
+	log.Println("Running NodeHeartbeat task...")
+
+	namespace, err := opts.KubeClient.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Get Namespace error: %v", err)
 	}
+	log.Printf("Namespace: %s", namespace.UID)
+
+	err = crd.NodeHeartbeat(opts, string(namespace.UID))
+	if err != nil {
+		log.Printf("NodeHeartbeat failed: %v", err)
+		return err
+	}
+
+	log.Println("NodeHeartbeat task completed")
 	return nil
 }
 
@@ -104,7 +111,7 @@ func UpdateNodeInfo(ctx context.Context, config *QueueConfig) error {
 	return nil
 }
 
-func DeleteNonExistingNodeResourceInfoTask(ctx context.Context, opts crd.DeleteNodeResourceInfoOptions) error {
+func DeleteNonExistingNodeResourceInfoTask(ctx context.Context, opts crd.NodeResourceInfoOptions) error {
 	log.Println("Running DeleteNonExistingNodeResourceInfo task...")
 
 	namespace, err := opts.KubeClient.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
