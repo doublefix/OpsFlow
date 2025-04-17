@@ -33,7 +33,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// CRD 不存在，则创建
-				return createNodeResourceInfo(crdClient, grpcClient, nodeResourceInfo, clusterId)
+				return CreateNodeResourceInfo(crdClient, grpcClient, nodeResourceInfo, clusterId)
 			}
 			return fmt.Errorf("获取 NodeResourceInfo 失败: %w", err)
 		}
@@ -132,7 +132,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 }
 
 // createNodeResourceInfo 创建新的 NodeResourceInfo CRD
-func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
+func CreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, grpcClient *grpc.ClientConn, nodeResourceInfo *v1alpha1.NodeResourceInfo, clusterId string) error {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(nodeResourceInfo)
 	if err != nil {
 		return fmt.Errorf("无法转换 NodeResourceInfo 对象: %w", err)
@@ -141,16 +141,30 @@ func createNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, gr
 	unstructuredObj["kind"] = "NodeResourceInfo"
 	unstructuredObj["apiVersion"] = "opsflow.io/v1alpha1"
 
-	_, err = crdClient.Create(context.TODO(), &unstructured.Unstructured{Object: unstructuredObj}, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("无法创建 NodeResourceInfo CRD: %w", err)
+	// 不存在则创建
+	_, err = crdClient.Get(context.TODO(), nodeResourceInfo.Name, metav1.GetOptions{})
+	if err == nil {
+		log.Printf("NodeResourceInfo %s 已存在，跳过创建", nodeResourceInfo.Name)
+	} else if errors.IsNotFound(err) {
+		_, err = crdClient.Create(
+			context.TODO(),
+			&unstructured.Unstructured{Object: unstructuredObj},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			return fmt.Errorf("无法创建 NodeResourceInfo CRD: %w", err)
+		}
+		log.Printf("成功创建 NodeResourceInfo %s", nodeResourceInfo.Name)
+	} else {
+		return fmt.Errorf("无法查询 NodeResourceInfo %s: %w", nodeResourceInfo.Name, err)
 	}
 
 	// TODO：Add Node
 	c := pb.NewNodeManagerClient(grpcClient)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
 	defer cancel()
 
+	log.Printf("NodeResourceInfo %s 创建中", nodeResourceInfo.Name)
 	resources := make([]*pb.NodeResource, 0, len(nodeResourceInfo.Spec.Resources))
 	for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
 		var capacity, allocatable, unit string

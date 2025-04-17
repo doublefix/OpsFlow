@@ -19,6 +19,6 @@ type NodeResourceInfoStatus struct {
 type NodeResourceInfo struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              NodeResourceInfoSpec   `json:"spec,omitempty"`
-	Status            NodeResourceInfoStatus `json:"status,omitempty"`
+	Spec              NodeResourceInfoSpec `json:"spec,omitempty"`
+	// Status            NodeResourceInfoStatus `json:"status,omitempty"`
 }

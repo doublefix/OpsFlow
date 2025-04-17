@@ -8,18 +8,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/modcoco/OpsFlow/pkg/apis/opsflow.io/v1alpha1"
 	pb "github.com/modcoco/OpsFlow/pkg/apis/proto"
 	"github.com/modcoco/OpsFlow/pkg/node"
+	"github.com/modcoco/OpsFlow/pkg/node/resourceinfo"
+	"github.com/modcoco/OpsFlow/pkg/utils"
 	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
 type NodeResourceInfoOptions struct {
-	CRDClient   dynamic.ResourceInterface // CRD 客户端
-	KubeClient  kubernetes.Interface      // Kubernetes 客户端
-	GRPCClient  *grpc.ClientConn          // gRPC 客户端
-	Parallelism int                       // 并发数
+	CRDClient   dynamic.NamespaceableResourceInterface // CRD 客户端
+	KubeClient  kubernetes.Interface                   // Kubernetes 客户端
+	GRPCClient  *grpc.ClientConn                       // gRPC 客户端
+	Parallelism int                                    // 并发数
 }
 
 // 批量删除不存在的 NodeResourceInfo CRD 实例
@@ -201,13 +206,37 @@ func NodeHeartbeat(opts NodeResourceInfoOptions, clusterId string) error {
 
 				log.Printf("Heartbeat response for node %s: %v", name, resp)
 
-				var parsedResp pb.NodeHeartbeatResponse
-				if err := resp.GetData().UnmarshalTo(&parsedResp); err != nil {
-					errCh <- fmt.Errorf("unmarshal failed for node %q: %w", name, err)
-					return
+				// var parsedResp pb.NodeHeartbeatResponse
+				// if err := resp.GetData().UnmarshalTo(&parsedResp); err != nil {
+				// 	errCh <- fmt.Errorf("unmarshal failed for node %q: %w", name, err)
+				// 	return
+				// }
+
+				// 如果心跳是404,那么就需要触发添加该节点
+				if resp.GetCode() == 404 {
+					// TODO: 触发添加该节点
+					log.Printf("Node %s not found, triggering add node", name)
+					existingResourceInfo, err := opts.CRDClient.Get(context.TODO(), name, metav1.GetOptions{})
+					if err != nil {
+						log.Printf("Failed to get existing resource info for node %s: %v", name, err)
+					}
+
+					var nodeInfo v1alpha1.NodeResourceInfo
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(existingResourceInfo.UnstructuredContent(), &nodeInfo)
+					if err != nil {
+						log.Printf("Failed to convert unstructured to NodeResourceInfo: %v", err)
+						return
+					}
+					utils.MarshalToJSON(nodeInfo)
+
+					err = resourceinfo.CreateNodeResourceInfo(opts.CRDClient, opts.GRPCClient, &nodeInfo, clusterId)
+					if err != nil {
+						log.Printf("Failed to create node resource info for node %s: %v", name, err)
+
+					}
 				}
 
-				log.Printf("Parsed Heartbeat response for node %s: %+v", name, &parsedResp)
+				// log.Printf("Parsed Heartbeat response for node %s: %+v", name, &parsedResp)
 			}(nodeName)
 		}
 
