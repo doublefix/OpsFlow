@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package api;
+option go_package = ".;api";
+
+service AgentService {
+  rpc Connect(stream AgentMessage) returns (stream AgentMessage);
+}
+
+message AgentMessage {
+  oneof body {
+    TaskRequest task_request = 1;
+    TaskResult task_result = 2;
+    Heartbeat heartbeat = 3;
+    CancelTask cancel_task = 4;
+  }
+}
+
+message TaskRequest {
+  string task_id = 1;
+  string command = 2;
+  map<string, string> parameters = 3;
+  int64 timeout_seconds = 4; // 任务超时（秒）
+}
+
+message TaskResult {
+  string task_id = 1;
+  string status = 2;  // success, failed, running, cancelled
+  string output = 3;
+  string error = 4;
+}
+
+message Heartbeat {
+  string agent_id = 1;
+  int64 timestamp = 2; // 当前心跳时间戳
+}
+
+message CancelTask {
+  string task_id = 1;
+}
