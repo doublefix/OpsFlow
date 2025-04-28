@@ -12,12 +12,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	serverAddr = "localhost:50051"
-	agentID    = "agent-001"
-)
-
-func RunAgent(conn *grpc.ClientConn) error {
+func RunAgent(conn *grpc.ClientConn, agentID string) error {
 	client := pb.NewAgentServiceClient(conn)
 
 	ctx, cancel := context.WithCancel(context.Background())

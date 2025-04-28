@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -73,7 +74,11 @@ func main() {
 	tasks.StartTaskScheduler(redisClient, tasksConfig)
 	go func() {
 		for {
-			if err := core.RunAgent(conn); err != nil {
+			namespace, err := client.Core().CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
+			if err != nil {
+				log.Printf("Get Namespace error: %v", err)
+			}
+			if err := core.RunAgent(conn, string(namespace.UID)); err != nil {
 				log.Printf("runAgent exited with error: %v, retrying in 5s...", err)
 				time.Sleep(5 * time.Second)
 			}
