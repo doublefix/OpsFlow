@@ -80,6 +80,11 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 			}
 
 			resourceinfo.LoadNodeResourceInfoFromNode(nodeQuery, nodeResourceInfo)
+
+			// Load node status
+			status := GetNodeStatus(&node)
+			nodeResourceInfo.Spec.Status = status
+
 			err := resourceinfo.UpdateCreateNodeResourceInfo(*opts.CRDClient, opts.GRPCClient, nodeResourceInfo, string(namespace.UID))
 			if err != nil {
 				errCh <- fmt.Errorf("节点 %s 处理失败: %w", n.Name, err)
@@ -134,4 +139,23 @@ func BatchCheckNodesNotExist(client kubernetes.Interface, nodeNames []string) ([
 	}
 
 	return nonExistingNodes, nil
+}
+
+func GetNodeStatus(node *corev1.Node) string {
+	var statuses []string
+
+	for _, condition := range node.Status.Conditions {
+		if condition.Status == corev1.ConditionTrue {
+			statuses = append(statuses, string(condition.Type))
+		}
+	}
+
+	if node.Spec.Unschedulable {
+		statuses = append(statuses, "SchedulingDisabled")
+	}
+
+	if len(statuses) == 0 {
+		return "Unknown"
+	}
+	return strings.Join(statuses, ",")
 }

@@ -65,7 +65,7 @@ func TestGetNodeResources(t *testing.T) {
 		}
 
 		fmt.Printf("Node: %s\n", node.Name)
-		status := GetNodeStatusString(&node)
+		status := GetNodeStatus(&node)
 		fmt.Println("STATUS:", status)
 
 		fmt.Println("--------------------------------------------------")
@@ -112,7 +112,7 @@ func TestGetNamespaceUID(t *testing.T) {
 	fmt.Println(namespace.GetUID())
 }
 
-func GetNodeStatusString(node *v1.Node) string {
+func GetNodeStatus(node *v1.Node) string {
 	var statuses []string
 
 	for _, condition := range node.Status.Conditions {

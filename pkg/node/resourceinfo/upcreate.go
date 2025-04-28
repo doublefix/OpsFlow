@@ -93,7 +93,7 @@ func UpdateCreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterfa
 			addResp, err := c.UpdateNode(ctx, &pb.UpdateNodeRequest{
 				NodeName:   nodeResourceInfo.Name,
 				ClusterId:  clusterId,
-				NodeStatus: "Ready",
+				NodeStatus: nodeResourceInfo.Spec.Status,
 				Resources:  resources,
 			})
 
@@ -195,7 +195,7 @@ func CreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, gr
 	addResp, err := c.AddNode(ctx, &pb.AddNodeRequest{
 		NodeName:   nodeResourceInfo.Name,
 		ClusterId:  clusterId,
-		NodeStatus: "Ready",
+		NodeStatus: nodeResourceInfo.Spec.Status,
 		Resources:  resources,
 	})
 
@@ -230,37 +230,38 @@ func updateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, ex
 }
 
 // 检查 CRD 是否需要更新
-func isNodeResourceInfoUpdated(existing *unstructured.Unstructured, nodeResourceInfo *v1alpha1.NodeResourceInfo) (bool, error) {
-	existingSpec, found, err := unstructured.NestedMap(existing.Object, "spec")
-	if err != nil || !found {
-		return true, fmt.Errorf("无法解析现有 CRD 的 spec 字段")
+func isNodeResourceInfoUpdated(existing *unstructured.Unstructured, newNodeResourceInfo *v1alpha1.NodeResourceInfo) (bool, error) {
+	// 将 Unstructured 转换为 NodeResourceInfo
+	var existingNodeResourceInfo v1alpha1.NodeResourceInfo
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(existing.UnstructuredContent(), &existingNodeResourceInfo)
+	if err != nil {
+		return true, fmt.Errorf("转换 Unstructured 到 NodeResourceInfo 失败: %v", err)
 	}
 
-	existingResources, found, err := unstructured.NestedMap(existingSpec, "resources")
-	if err != nil || !found {
+	// 检查 Status 是否变化
+	if existingNodeResourceInfo.Spec.Status != newNodeResourceInfo.Spec.Status {
+		log.Printf("Status 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.Status, newNodeResourceInfo.Spec.Status)
 		return true, nil
 	}
 
-	for resourceName, resourceInfo := range nodeResourceInfo.Spec.Resources {
-		existingResource, exists := existingResources[resourceName]
+	// 检查 Resources 是否变化
+	if len(existingNodeResourceInfo.Spec.Resources) != len(newNodeResourceInfo.Spec.Resources) {
+		log.Printf("Resources 数量发生变化: 旧数量 = %d, 新数量 = %d", len(existingNodeResourceInfo.Spec.Resources), len(newNodeResourceInfo.Spec.Resources))
+		return true, nil
+	}
 
+	for resourceName, newResource := range newNodeResourceInfo.Spec.Resources {
+		existingResource, exists := existingNodeResourceInfo.Spec.Resources[resourceName]
 		if !exists {
 			log.Printf("资源 %s 在现有 CRD 中不存在，新增该资源", resourceName)
 			return true, nil
 		}
 
-		existingResourceMap := existingResource.(map[string]any)
-		newResourceMap := map[string]any{
-			"total":       resourceInfo.Total,
-			"allocatable": resourceInfo.Allocatable,
-			"used":        resourceInfo.Used,
-		}
-
-		for key, value := range newResourceMap {
-			if existingValue, exists := existingResourceMap[key]; !exists || existingValue != value {
-				log.Printf("资源 %s 的 %s 字段发生变化: 旧值 = %v, 新值 = %v", resourceName, key, existingValue, value)
-				return true, nil
-			}
+		if existingResource.Total != newResource.Total ||
+			existingResource.Allocatable != newResource.Allocatable ||
+			existingResource.Used != newResource.Used {
+			log.Printf("资源 %s 发生变化: 旧值 = %+v, 新值 = %+v", resourceName, existingResource, newResource)
+			return true, nil
 		}
 	}
 

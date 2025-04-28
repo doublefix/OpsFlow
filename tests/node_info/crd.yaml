@@ -24,6 +24,8 @@ spec:
               properties:
                 nodeName:
                   type: string
+                status:
+                  type: string
                 resources:
                   type: object
                   additionalProperties:

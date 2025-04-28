@@ -11,14 +11,11 @@ type ResourceInfo struct {
 type NodeResourceInfoSpec struct {
 	NodeName  string                  `json:"nodeName"`
 	Resources map[string]ResourceInfo `json:"resources"`
-}
-
-type NodeResourceInfoStatus struct {
+	Status    string                  `json:"status"`
 }
 
 type NodeResourceInfo struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              NodeResourceInfoSpec `json:"spec,omitempty"`
-	// Status            NodeResourceInfoStatus `json:"status,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              NodeResourceInfoSpec `json:"spec"`
 }
