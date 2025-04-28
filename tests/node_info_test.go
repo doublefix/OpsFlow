@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/modcoco/OpsFlow/pkg/utils"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -63,6 +65,9 @@ func TestGetNodeResources(t *testing.T) {
 		}
 
 		fmt.Printf("Node: %s\n", node.Name)
+		status := GetNodeStatusString(&node)
+		fmt.Println("STATUS:", status)
+
 		fmt.Println("--------------------------------------------------")
 
 		fmt.Printf("  [CPU]\n")
@@ -105,4 +110,20 @@ func TestGetNamespaceUID(t *testing.T) {
 	}
 
 	fmt.Println(namespace.GetUID())
+}
+
+func GetNodeStatusString(node *v1.Node) string {
+	var statuses []string
+
+	for _, condition := range node.Status.Conditions {
+		if condition.Status == v1.ConditionTrue {
+			statuses = append(statuses, string(condition.Type))
+		}
+	}
+
+	if node.Spec.Unschedulable {
+		statuses = append(statuses, "SchedulingDisabled")
+	}
+
+	return strings.Join(statuses, ",")
 }
