@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/modcoco/OpsFlow/pkg/core"
@@ -70,6 +71,14 @@ func main() {
 
 	tasksConfig := tasks.InitializeTasks(client, redisClient, conn)
 	tasks.StartTaskScheduler(redisClient, tasksConfig)
+	go func() {
+		for {
+			if err := core.RunAgent(conn); err != nil {
+				log.Printf("runAgent exited with error: %v, retrying in 5s...", err)
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}()
 
 	r := CreateGinRouter(client)
 	if err := r.Run(":8090"); err != nil {
