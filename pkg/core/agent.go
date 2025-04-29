@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/modcoco/OpsFlow/pkg/apis/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func RunAgent(conn *grpc.ClientConn, agentID string) error {
@@ -23,7 +24,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 		return fmt.Errorf("failed to connect stream: %w", err)
 	}
 
-	// 发送第一次 heartbeat（必须的）
+	// Send initial heartbeat (required)
 	if err := stream.Send(&pb.AgentMessage{
 		Body: &pb.AgentMessage_Heartbeat{
 			Heartbeat: &pb.Heartbeat{
@@ -35,7 +36,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 		return fmt.Errorf("failed to send initial heartbeat: %w", err)
 	}
 
-	// 启动心跳 goroutine
+	// Start heartbeat goroutine
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
@@ -62,7 +63,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 		}
 	}()
 
-	// 监听服务器下发的任务
+	// Listen for server messages
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
@@ -79,42 +80,50 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 
 func handleMessage(stream pb.AgentService_ConnectClient, msg *pb.AgentMessage) {
 	switch body := msg.Body.(type) {
-	case *pb.AgentMessage_TaskRequest:
-		task := body.TaskRequest
-		log.Printf("received task: id=%s command=%s", task.TaskId, task.Command)
-		go executeTask(stream, task)
+	case *pb.AgentMessage_FunctionRequest:
+		req := body.FunctionRequest
+		log.Printf("received function request: id=%s function=%s", req.RequestId, req.FunctionName)
+		go executeFunction(stream, req)
 
 	case *pb.AgentMessage_CancelTask:
-		cancelTask := body.CancelTask
-		log.Printf("received cancel for task: id=%s", cancelTask.TaskId)
-		// TODO: 这里可以记录取消的任务ID，实际执行的时候检查是否要终止
+		cancelReq := body.CancelTask
+		log.Printf("received cancel for request: id=%s", cancelReq.RequestId)
+		// TODO: Implement cancellation logic for running functions
 
 	default:
 		log.Println("received unknown message")
 	}
 }
 
-// 简单模拟执行任务
-func executeTask(stream pb.AgentService_ConnectClient, task *pb.TaskRequest) {
-	log.Printf("executing task %s: %s", task.TaskId, task.Command)
+// executeFunction handles function execution and sends back the result
+func executeFunction(stream pb.AgentService_ConnectClient, req *pb.FunctionRequest) {
+	log.Printf("executing function %s (request_id: %s)", req.FunctionName, req.RequestId)
 
-	// 模拟执行时间
+	// Simulate execution time
 	sleepTime := time.Duration(rand.Intn(5)+1) * time.Second
 	time.Sleep(sleepTime)
 
-	// 发送任务结果
+	// Prepare result
+	result := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"execution_time": structpb.NewNumberValue(sleepTime.Seconds()),
+			"function_name":  structpb.NewStringValue(req.FunctionName),
+		},
+	}
+
+	// Send function result
 	err := stream.Send(&pb.AgentMessage{
-		Body: &pb.AgentMessage_TaskResult{
-			TaskResult: &pb.TaskResult{
-				TaskId: task.TaskId,
-				Status: "success",
-				Output: fmt.Sprintf("executed command: %s", task.Command),
-				Error:  "",
+		Body: &pb.AgentMessage_FunctionResult{
+			FunctionResult: &pb.FunctionResult{
+				RequestId:    req.RequestId,
+				Success:      true,
+				Result:       result,
+				ErrorMessage: "",
 			},
 		},
 	})
 	if err != nil {
-		log.Printf("failed to send task result: %v", err)
+		log.Printf("failed to send function result: %v", err)
 	}
-	log.Printf("finished task %s", task.TaskId)
+	log.Printf("finished function %s (request_id: %s)", req.FunctionName, req.RequestId)
 }

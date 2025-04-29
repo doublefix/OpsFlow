@@ -3,38 +3,45 @@ syntax = "proto3";
 package api;
 option go_package = ".;api";
 
+import "google/protobuf/struct.proto"; // 引入结构化参数支持
+
 service AgentService {
   rpc Connect(stream AgentMessage) returns (stream AgentMessage);
 }
 
+// 双向消息
 message AgentMessage {
   oneof body {
-    TaskRequest task_request = 1;
-    TaskResult task_result = 2;
+    FunctionRequest function_request = 1;
+    FunctionResult function_result = 2;
     Heartbeat heartbeat = 3;
     CancelTask cancel_task = 4;
   }
 }
 
-message TaskRequest {
-  string task_id = 1;
-  string command = 2;
-  map<string, string> parameters = 3;
-  int64 timeout_seconds = 4; // 任务超时（秒）
+// 函数调用请求
+message FunctionRequest {
+  string request_id = 1;                // 请求ID，用于跟踪请求
+  string function_name = 2;             // 要调用的函数名，比如 "train"、"predict"
+  google.protobuf.Struct parameters = 3; // 参数，支持嵌套复杂结构
+  int64 timeout_seconds = 4;             // 超时时间，单位：秒（可选）
 }
 
-message TaskResult {
-  string task_id = 1;
-  string status = 2;  // success, failed, running, cancelled
-  string output = 3;
-  string error = 4;
+// 函数调用结果
+message FunctionResult {
+  string request_id = 1;                // 对应请求ID
+  bool success = 2;                     // 是否成功
+  google.protobuf.Struct result = 3;    // 返回的数据（任何格式）
+  string error_message = 4;              // 错误信息（如果失败）
 }
 
+// 心跳
 message Heartbeat {
   string agent_id = 1;
-  int64 timestamp = 2; // 当前心跳时间戳
+  int64 timestamp = 2; // 时间戳
 }
 
+// 取消任务
 message CancelTask {
-  string task_id = 1;
+  string request_id = 1; // 要取消的 request_id
 }
