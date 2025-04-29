@@ -53,11 +53,16 @@ message AddNodeRequest {
     string node_name = 1;
     string cluster_id = 2;
     string node_status = 3;
-    bool unschedulable = 4;
-    map<string, string> labels = 5;
-    map<string, string> annotations = 6;
-    repeated NodeTaint taints = 7;
-    repeated NodeResource resources = 8;
+    string roles = 4;
+    string schedule_version = 5;
+    string internal_ip = 6;
+    string os = 7;
+    string kernel_version = 8;
+    string container_runtime = 9;
+    map<string, string> labels = 10;
+    map<string, string> annotations = 11;
+    repeated NodeTaint taints = 12;
+    repeated NodeResource resources = 13;
 }
 
 // 添加节点响应（嵌入 GenericResponse.data 中）
@@ -66,14 +71,19 @@ message AddNodeResponse {
     string cluster_id = 2;
     string node_name = 3;
     string node_status = 4;
-    bool unschedulable = 5;
-    bool is_deleted = 6;
-    google.protobuf.Timestamp created_at = 7;
-    google.protobuf.Timestamp updated_at = 8;
-    map<string, string> labels = 9;
-    map<string, string> annotations = 10;
-    repeated NodeTaint taints = 11;
-    repeated NodeResource resources = 12;
+    string roles = 5;
+    string schedule_version = 6;
+    string internal_ip = 7;
+    string os = 8;
+    string kernel_version = 9;
+    string container_runtime = 10;
+    bool is_deleted = 11;
+    google.protobuf.Timestamp created_at = 12;
+    google.protobuf.Timestamp updated_at = 13;
+    map<string, string> labels = 14;
+    map<string, string> annotations = 15;
+    repeated NodeTaint taints = 16;
+    repeated NodeResource resources = 17;
 }
 
 // 更新节点请求
@@ -81,11 +91,16 @@ message UpdateNodeRequest {
     string node_name = 1;
     string cluster_id = 2;
     string node_status = 3;
-    bool unschedulable = 4;
-    map<string, string> labels = 5;
-    map<string, string> annotations = 6;
-    repeated NodeTaint taints = 7;
-    repeated NodeResource resources = 8;
+    string roles = 4;
+    string schedule_version = 5;
+    string internal_ip = 6;
+    string os = 7;
+    string kernel_version = 8;
+    string container_runtime = 9;
+    map<string, string> labels = 10;
+    map<string, string> annotations = 11;
+    repeated NodeTaint taints = 12;
+    repeated NodeResource resources = 13;
 }
 
 // 更新节点响应（嵌入 GenericResponse.data 中）
@@ -93,12 +108,17 @@ message UpdateNodeResponse {
     int64 id = 1;
     string node_name = 2;
     string node_status = 3;
-    bool unschedulable = 4;
-    google.protobuf.Timestamp updated_at = 5;
-    map<string, string> labels = 6;
-    map<string, string> annotations = 7;
-    repeated NodeTaint taints = 8;
-    repeated NodeResource resources = 9;
+    string roles = 4;
+    string schedule_version = 5;
+    string internal_ip = 6;
+    string os = 7;
+    string kernel_version = 8;
+    string container_runtime = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    map<string, string> labels = 11;
+    map<string, string> annotations = 12;
+    repeated NodeTaint taints = 13;
+    repeated NodeResource resources = 14;
 }
 
 // 删除节点请求

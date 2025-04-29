@@ -83,7 +83,19 @@ func BatchAddNodeResourceInfo(opts BatchUpdateCreateOptions) error {
 
 			// Load node status
 			status := GetNodeStatus(&node)
+			nodeRoles := GetNodeRoles(&node)
+			kubeletVersion := GetKubeletVersion(&node)
+			internalIP := GetInternalIP(&node)
+			os := GetOSImage(&node)
+			kernelVersion := GetKernelVersion(&node)
+			containerRuntimeVersion := GetContainerRuntimeVersion(&node)
 			nodeResourceInfo.Spec.Status = status
+			nodeResourceInfo.Spec.Roles = nodeRoles
+			nodeResourceInfo.Spec.ScheduleVersion = kubeletVersion
+			nodeResourceInfo.Spec.InternalIp = internalIP
+			nodeResourceInfo.Spec.OS = os
+			nodeResourceInfo.Spec.KernelVersion = kernelVersion
+			nodeResourceInfo.Spec.ContainerRuntime = containerRuntimeVersion
 
 			err := resourceinfo.UpdateCreateNodeResourceInfo(*opts.CRDClient, opts.GRPCClient, nodeResourceInfo, string(namespace.UID))
 			if err != nil {

@@ -9,9 +9,15 @@ type ResourceInfo struct {
 }
 
 type NodeResourceInfoSpec struct {
-	NodeName  string                  `json:"nodeName"`
-	Resources map[string]ResourceInfo `json:"resources"`
-	Status    string                  `json:"status"`
+	NodeName         string                  `json:"nodeName"`
+	Resources        map[string]ResourceInfo `json:"resources"`
+	Status           string                  `json:"status"`
+	Roles            string                  `json:"roles"`
+	ScheduleVersion  string                  `json:"scheduleVersion"`
+	InternalIp       string                  `json:"internalIp"`
+	OS               string                  `json:"os"`
+	KernelVersion    string                  `json:"kernelVersion"`
+	ContainerRuntime string                  `json:"containerRuntime"`
 }
 
 type NodeResourceInfo struct {

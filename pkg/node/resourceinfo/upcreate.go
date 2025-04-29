@@ -193,10 +193,16 @@ func CreateNodeResourceInfo(crdClient dynamic.NamespaceableResourceInterface, gr
 	}
 
 	addResp, err := c.AddNode(ctx, &pb.AddNodeRequest{
-		NodeName:   nodeResourceInfo.Name,
-		ClusterId:  clusterId,
-		NodeStatus: nodeResourceInfo.Spec.Status,
-		Resources:  resources,
+		NodeName:         nodeResourceInfo.Name,
+		ClusterId:        clusterId,
+		NodeStatus:       nodeResourceInfo.Spec.Status,
+		Resources:        resources,
+		Roles:            nodeResourceInfo.Spec.Roles,
+		ScheduleVersion:  nodeResourceInfo.Spec.ScheduleVersion,
+		InternalIp:       nodeResourceInfo.Spec.InternalIp,
+		Os:               nodeResourceInfo.Spec.OS,
+		KernelVersion:    nodeResourceInfo.Spec.KernelVersion,
+		ContainerRuntime: nodeResourceInfo.Spec.ContainerRuntime,
 	})
 
 	if err != nil {
@@ -241,6 +247,30 @@ func isNodeResourceInfoUpdated(existing *unstructured.Unstructured, newNodeResou
 	// 检查 Status 是否变化
 	if existingNodeResourceInfo.Spec.Status != newNodeResourceInfo.Spec.Status {
 		log.Printf("Status 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.Status, newNodeResourceInfo.Spec.Status)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.ScheduleVersion != newNodeResourceInfo.Spec.ScheduleVersion {
+		log.Printf("ScheduleVersion 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.ScheduleVersion, newNodeResourceInfo.Spec.ScheduleVersion)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.InternalIp != newNodeResourceInfo.Spec.InternalIp {
+		log.Printf("InternalIp 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.InternalIp, newNodeResourceInfo.Spec.InternalIp)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.OS != newNodeResourceInfo.Spec.OS {
+		log.Printf("OS 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.OS, newNodeResourceInfo.Spec.OS)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.KernelVersion != newNodeResourceInfo.Spec.KernelVersion {
+		log.Printf("KernelVersion 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.KernelVersion, newNodeResourceInfo.Spec.KernelVersion)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.Roles != newNodeResourceInfo.Spec.Roles {
+		log.Printf("Roles 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.Roles, newNodeResourceInfo.Spec.Roles)
+		return true, nil
+	}
+	if existingNodeResourceInfo.Spec.ContainerRuntime != newNodeResourceInfo.Spec.ContainerRuntime {
+		log.Printf("ContainerRuntime 发生变化: 旧值 = %v, 新值 = %v", existingNodeResourceInfo.Spec.ContainerRuntime, newNodeResourceInfo.Spec.ContainerRuntime)
 		return true, nil
 	}
 

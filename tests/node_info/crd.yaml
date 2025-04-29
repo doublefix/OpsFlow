@@ -26,6 +26,18 @@ spec:
                   type: string
                 status:
                   type: string
+                roles:
+                  type: string
+                scheduleVersion:
+                  type: string
+                internalIp:
+                  type: string
+                os:
+                  type: string
+                kernelVersion:
+                  type: string
+                containerRuntime:
+                  type: string
                 resources:
                   type: object
                   additionalProperties:
