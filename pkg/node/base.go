@@ -159,3 +159,43 @@ func GetNodeStatus(node *corev1.Node) string {
 	}
 	return strings.Join(statuses, ",")
 }
+
+func GetNodeRoles(node *corev1.Node) string {
+	const roleLabelPrefix = "node-role.kubernetes.io/"
+	var roles []string
+
+	for label := range node.Labels {
+		if strings.HasPrefix(label, roleLabelPrefix) {
+			rolePart := strings.TrimPrefix(label, roleLabelPrefix)
+			role := strings.TrimSuffix(rolePart, "=")
+			roles = append(roles, role)
+		}
+	}
+
+	return strings.Join(roles, ",")
+}
+
+func GetInternalIP(node *corev1.Node) string {
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == corev1.NodeInternalIP {
+			return addr.Address
+		}
+	}
+	return ""
+}
+
+func GetKubeletVersion(node *corev1.Node) string {
+	return node.Status.NodeInfo.KubeletVersion
+}
+
+func GetOSImage(node *corev1.Node) string {
+	return node.Status.NodeInfo.OSImage
+}
+
+func GetKernelVersion(node *corev1.Node) string {
+	return node.Status.NodeInfo.KernelVersion
+}
+
+func GetContainerRuntimeVersion(node *corev1.Node) string {
+	return node.Status.NodeInfo.ContainerRuntimeVersion
+}

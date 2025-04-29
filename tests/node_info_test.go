@@ -66,7 +66,20 @@ func TestGetNodeResources(t *testing.T) {
 
 		fmt.Printf("Node: %s\n", node.Name)
 		status := GetNodeStatus(&node)
+		roles := GetNodeRoles(&node)
+		kubeletVersion := GetKubeletVersion(&node)
+		internalIP := GetInternalIP(&node)
+		kernelVersion := GetKernelVersion(&node)
+		containerRuntimeVersion := GetContainerRuntimeVersion(&node)
+		OSImage := GetOSImage(&node)
+
 		fmt.Println("STATUS:", status)
+		fmt.Println("ROLES:", roles)
+		fmt.Println("VERSION:", kubeletVersion)
+		fmt.Println("InternalIP:", internalIP)
+		fmt.Println("KernelVersion:", kernelVersion)
+		fmt.Println("ContainerRuntimeVersion:", containerRuntimeVersion)
+		fmt.Println("OSImage:", OSImage)
 
 		fmt.Println("--------------------------------------------------")
 
@@ -126,4 +139,44 @@ func GetNodeStatus(node *v1.Node) string {
 	}
 
 	return strings.Join(statuses, ",")
+}
+
+func GetNodeRoles(node *v1.Node) string {
+	const roleLabelPrefix = "node-role.kubernetes.io/"
+	var roles []string
+
+	for label := range node.Labels {
+		if strings.HasPrefix(label, roleLabelPrefix) {
+			rolePart := strings.TrimPrefix(label, roleLabelPrefix)
+			role := strings.TrimSuffix(rolePart, "=")
+			roles = append(roles, role)
+		}
+	}
+
+	return strings.Join(roles, ",")
+}
+
+func GetKubeletVersion(node *v1.Node) string {
+	return node.Status.NodeInfo.KubeletVersion
+}
+
+func GetOSImage(node *v1.Node) string {
+	return node.Status.NodeInfo.OSImage
+}
+
+func GetKernelVersion(node *v1.Node) string {
+	return node.Status.NodeInfo.KernelVersion
+}
+
+func GetContainerRuntimeVersion(node *v1.Node) string {
+	return node.Status.NodeInfo.ContainerRuntimeVersion
+}
+
+func GetInternalIP(node *v1.Node) string {
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == v1.NodeInternalIP {
+			return addr.Address
+		}
+	}
+	return ""
 }
