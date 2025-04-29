@@ -1,16 +1,14 @@
-package core
+package agent
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"time"
 
 	pb "github.com/modcoco/OpsFlow/pkg/apis/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func RunAgent(conn *grpc.ClientConn, agentID string) error {
@@ -95,30 +93,29 @@ func handleMessage(stream pb.AgentService_ConnectClient, msg *pb.AgentMessage) {
 	}
 }
 
-// executeFunction handles function execution and sends back the result
 func executeFunction(stream pb.AgentService_ConnectClient, req *pb.FunctionRequest) {
 	log.Printf("executing function %s (request_id: %s)", req.FunctionName, req.RequestId)
 
-	// Simulate execution time
-	sleepTime := time.Duration(rand.Intn(5)+1) * time.Second
-	time.Sleep(sleepTime)
-
-	// Prepare result
-	result := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"execution_time": structpb.NewNumberValue(sleepTime.Seconds()),
-			"function_name":  structpb.NewStringValue(req.FunctionName),
-		},
+	handler, ok := functionRegistry[req.FunctionName]
+	if !ok {
+		log.Printf("unknown function: %s", req.FunctionName)
+		sendError(stream, req.RequestId, "unknown function")
+		return
 	}
 
-	// Send function result
-	err := stream.Send(&pb.AgentMessage{
+	result, err := handler(req.Parameters)
+	if err != nil {
+		log.Printf("handler error for function %s: %v", req.FunctionName, err)
+		sendError(stream, req.RequestId, err.Error())
+		return
+	}
+
+	err = stream.Send(&pb.AgentMessage{
 		Body: &pb.AgentMessage_FunctionResult{
 			FunctionResult: &pb.FunctionResult{
-				RequestId:    req.RequestId,
-				Success:      true,
-				Result:       result,
-				ErrorMessage: "",
+				RequestId: req.RequestId,
+				Success:   true,
+				Result:    result,
 			},
 		},
 	})
@@ -126,4 +123,15 @@ func executeFunction(stream pb.AgentService_ConnectClient, req *pb.FunctionReque
 		log.Printf("failed to send function result: %v", err)
 	}
 	log.Printf("finished function %s (request_id: %s)", req.FunctionName, req.RequestId)
+}
+func sendError(stream pb.AgentService_ConnectClient, requestID, message string) {
+	_ = stream.Send(&pb.AgentMessage{
+		Body: &pb.AgentMessage_FunctionResult{
+			FunctionResult: &pb.FunctionResult{
+				RequestId:    requestID,
+				Success:      false,
+				ErrorMessage: message,
+			},
+		},
+	})
 }

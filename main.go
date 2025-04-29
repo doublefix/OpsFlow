@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/modcoco/OpsFlow/pkg/agent"
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
 	"github.com/modcoco/OpsFlow/pkg/queue"
@@ -78,7 +79,7 @@ func main() {
 			if err != nil {
 				log.Printf("Get Namespace error: %v", err)
 			}
-			if err := core.RunAgent(conn, string(namespace.UID)); err != nil {
+			if err := agent.RunAgent(conn, string(namespace.UID)); err != nil {
 				log.Printf("runAgent exited with error: %v, retrying in 5s...", err)
 				time.Sleep(5 * time.Second)
 			}
