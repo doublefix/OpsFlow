@@ -6,7 +6,7 @@ option go_package = ".;api";
 import "google/protobuf/struct.proto"; // 引入结构化参数支持
 
 service AgentService {
-  rpc Connect(stream AgentMessage) returns (stream AgentMessage);
+  rpc AgentStream(stream AgentMessage) returns (stream AgentMessage);
 }
 
 // 双向消息
@@ -38,7 +38,8 @@ message FunctionResult {
 // 心跳
 message Heartbeat {
   string agent_id = 1;
-  int64 timestamp = 2; // 时间戳
+  string agent_type = 2;  // 代理类型，用于区分不同应用
+  int64 timestamp = 3;    // 时间戳
 }
 
 // 取消任务

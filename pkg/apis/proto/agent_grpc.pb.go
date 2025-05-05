@@ -19,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentService_Connect_FullMethodName = "/api.AgentService/Connect"
+	AgentService_AgentStream_FullMethodName = "/api.AgentService/AgentStream"
 )
 
 // AgentServiceClient is the client API for AgentService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentServiceClient interface {
-	Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentMessage, AgentMessage], error)
+	AgentStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentMessage, AgentMessage], error)
 }
 
 type agentServiceClient struct {
@@ -37,9 +37,9 @@ func NewAgentServiceClient(cc grpc.ClientConnInterface) AgentServiceClient {
 	return &agentServiceClient{cc}
 }
 
-func (c *agentServiceClient) Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentMessage, AgentMessage], error) {
+func (c *agentServiceClient) AgentStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentMessage, AgentMessage], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &AgentService_ServiceDesc.Streams[0], AgentService_Connect_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &AgentService_ServiceDesc.Streams[0], AgentService_AgentStream_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +48,13 @@ func (c *agentServiceClient) Connect(ctx context.Context, opts ...grpc.CallOptio
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AgentService_ConnectClient = grpc.BidiStreamingClient[AgentMessage, AgentMessage]
+type AgentService_AgentStreamClient = grpc.BidiStreamingClient[AgentMessage, AgentMessage]
 
 // AgentServiceServer is the server API for AgentService service.
 // All implementations must embed UnimplementedAgentServiceServer
 // for forward compatibility.
 type AgentServiceServer interface {
-	Connect(grpc.BidiStreamingServer[AgentMessage, AgentMessage]) error
+	AgentStream(grpc.BidiStreamingServer[AgentMessage, AgentMessage]) error
 	mustEmbedUnimplementedAgentServiceServer()
 }
 
@@ -65,8 +65,8 @@ type AgentServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAgentServiceServer struct{}
 
-func (UnimplementedAgentServiceServer) Connect(grpc.BidiStreamingServer[AgentMessage, AgentMessage]) error {
-	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+func (UnimplementedAgentServiceServer) AgentStream(grpc.BidiStreamingServer[AgentMessage, AgentMessage]) error {
+	return status.Errorf(codes.Unimplemented, "method AgentStream not implemented")
 }
 func (UnimplementedAgentServiceServer) mustEmbedUnimplementedAgentServiceServer() {}
 func (UnimplementedAgentServiceServer) testEmbeddedByValue()                      {}
@@ -89,12 +89,12 @@ func RegisterAgentServiceServer(s grpc.ServiceRegistrar, srv AgentServiceServer)
 	s.RegisterService(&AgentService_ServiceDesc, srv)
 }
 
-func _AgentService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(AgentServiceServer).Connect(&grpc.GenericServerStream[AgentMessage, AgentMessage]{ServerStream: stream})
+func _AgentService_AgentStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(AgentServiceServer).AgentStream(&grpc.GenericServerStream[AgentMessage, AgentMessage]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AgentService_ConnectServer = grpc.BidiStreamingServer[AgentMessage, AgentMessage]
+type AgentService_AgentStreamServer = grpc.BidiStreamingServer[AgentMessage, AgentMessage]
 
 // AgentService_ServiceDesc is the grpc.ServiceDesc for AgentService service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -105,8 +105,8 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Connect",
-			Handler:       _AgentService_Connect_Handler,
+			StreamName:    "AgentStream",
+			Handler:       _AgentService_AgentStream_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

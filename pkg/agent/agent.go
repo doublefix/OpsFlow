@@ -17,7 +17,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, err := client.Connect(ctx)
+	stream, err := client.AgentStream(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to connect stream: %w", err)
 	}
@@ -27,6 +27,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 		Body: &pb.AgentMessage_Heartbeat{
 			Heartbeat: &pb.Heartbeat{
 				AgentId:   agentID,
+				AgentType: "opsflow",
 				Timestamp: time.Now().Unix(),
 			},
 		},
@@ -76,7 +77,7 @@ func RunAgent(conn *grpc.ClientConn, agentID string) error {
 	}
 }
 
-func handleMessage(stream pb.AgentService_ConnectClient, msg *pb.AgentMessage) {
+func handleMessage(stream pb.AgentService_AgentStreamClient, msg *pb.AgentMessage) {
 	switch body := msg.Body.(type) {
 	case *pb.AgentMessage_FunctionRequest:
 		req := body.FunctionRequest
@@ -93,7 +94,7 @@ func handleMessage(stream pb.AgentService_ConnectClient, msg *pb.AgentMessage) {
 	}
 }
 
-func executeFunction(stream pb.AgentService_ConnectClient, req *pb.FunctionRequest) {
+func executeFunction(stream pb.AgentService_AgentStreamClient, req *pb.FunctionRequest) {
 	log.Printf("executing function %s (request_id: %s)", req.FunctionName, req.RequestId)
 
 	handler, ok := functionRegistry[req.FunctionName]
@@ -124,7 +125,7 @@ func executeFunction(stream pb.AgentService_ConnectClient, req *pb.FunctionReque
 	}
 	log.Printf("finished function %s (request_id: %s)", req.FunctionName, req.RequestId)
 }
-func sendError(stream pb.AgentService_ConnectClient, requestID, message string) {
+func sendError(stream pb.AgentService_AgentStreamClient, requestID, message string) {
 	_ = stream.Send(&pb.AgentMessage{
 		Body: &pb.AgentMessage_FunctionResult{
 			FunctionResult: &pb.FunctionResult{
