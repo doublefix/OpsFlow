@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -47,12 +49,17 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid WORKER_COUNT: %v", err)
 	}
 
+	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "127.0.0.1:6379"), ",")
+	if len(redisAddrs) == 0 {
+		return nil, fmt.Errorf("no Redis addresses provided")
+	}
+
 	return &Config{
 		GrpcAddr:       getEnv("GRPC_ADDR", "localhost:50051"),
 		ListenAddr:     getEnv("LISTEN_ADDR", ":8090"),
 		QueueName:      getEnv("QUEUE_NAME", "task_queue"),
 		WorkerCount:    workerCount,
-		RedisAddrs:     strings.Split(getEnv("REDIS_ADDRS", "127.0.0.1:6379"), ","),
+		RedisAddrs:     redisAddrs,
 		RedisPwd:       os.Getenv("REDIS_PASSWORD"),
 		RedisIsCluster: getEnv("REDIS_CLUSTER", "false") == "true",
 	}, nil
@@ -62,13 +69,60 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 	r := gin.Default()
 	r.Use(core.AppContextMiddleware(client))
 
-	r.GET("/api/v1/pod", handler.GetPodInfo)
-	r.POST("/api/v1/raycluster", handler.GetCreateRayClusterInfo)
-	r.POST("/api/v1/rayjob", handler.CreateRayJobHandle)
-	r.GET("/api/v1/rayjob/:namespace/:name", handler.RayJobInfoHandle)
-	r.DELETE("/api/v1/rayjob/:namespace/:name", handler.RemoveRayJobHandle)
+	api := r.Group("/api/v1")
+	{
+		api.GET("/pod", handler.GetPodInfo)
+		api.POST("/raycluster", handler.GetCreateRayClusterInfo)
+		api.POST("/rayjob", handler.CreateRayJobHandle)
+		api.GET("/rayjob/:namespace/:name", handler.RayJobInfoHandle)
+		api.DELETE("/rayjob/:namespace/:name", handler.RemoveRayJobHandle)
+	}
 
 	return r
+}
+
+func createRedisClient(cfg *Config) (redis.Cmdable, error) {
+	if cfg.RedisIsCluster {
+		client := redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:    cfg.RedisAddrs,
+			Password: cfg.RedisPwd,
+		})
+		if err := client.Ping(context.Background()).Err(); err != nil {
+			return nil, fmt.Errorf("failed to connect to Redis cluster: %w", err)
+		}
+		return client, nil
+	}
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddrs[0],
+		Password: cfg.RedisPwd,
+	})
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+	return client, nil
+}
+
+func runAgent(ctx context.Context, conn *grpc.ClientConn, client core.Client) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			namespace, err := client.Core().CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
+			if err != nil {
+				log.Printf("Get Namespace error: %v", err)
+				continue
+			}
+
+			if err := agent.RunAgent(conn, string(namespace.UID)); err != nil {
+				log.Printf("runAgent exited with error: %v", err)
+			}
+		}
+	}
 }
 
 func main() {
@@ -85,6 +139,7 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
+	// Initialize gRPC connection
 	conn, err := grpc.NewClient(
 		cfg.GrpcAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -94,47 +149,69 @@ func main() {
 	}
 	defer conn.Close()
 
-	var redisClient redis.Cmdable
-	if cfg.RedisIsCluster {
-		redisClient = redis.NewClusterClient(&redis.ClusterOptions{
-			Addrs:    cfg.RedisAddrs,
-			Password: cfg.RedisPwd,
-		})
-	} else {
-		redisClient = redis.NewClient(&redis.Options{
-			Addr:     cfg.RedisAddrs[0],
-			Password: cfg.RedisPwd,
-		})
+	redisClient, err := createRedisClient(cfg)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	queueConfig := queue.TaskProcessorConfig{
-		Clientset:   client.Core(),
-		CRDClient:   client.DynamicNRI(),
-		RpcConn:     conn,
-		RedisClient: redisClient,
-		WorkerCount: cfg.WorkerCount,
-		QueueName:   cfg.QueueName,
-	}
-	go queue.StartTaskQueueProcessor(ctx, queueConfig)
+	var wg sync.WaitGroup
 
-	tasksConfig := tasks.InitializeTasks(client, redisClient, conn)
-	tasks.StartTaskScheduler(redisClient, tasksConfig)
-
+	// Start task queue processor
+	wg.Add(1)
 	go func() {
-		for {
-			namespace, err := client.Core().CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
-			if err != nil {
-				log.Printf("Get Namespace error: %v", err)
-			}
-			if err := agent.RunAgent(conn, string(namespace.UID)); err != nil {
-				log.Printf("runAgent exited with error: %v, retrying in 5s...", err)
-				time.Sleep(5 * time.Second)
-			}
+		defer wg.Done()
+		queueConfig := queue.TaskProcessorConfig{
+			Clientset:   client.Core(),
+			CRDClient:   client.DynamicNRI(),
+			RpcConn:     conn,
+			RedisClient: redisClient,
+			WorkerCount: cfg.WorkerCount,
+			QueueName:   cfg.QueueName,
+		}
+		queue.StartTaskQueueProcessor(ctx, queueConfig)
+	}()
+
+	// Start task scheduler
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		tasksConfig := tasks.InitializeTasks(client, redisClient, conn)
+		tasks.StartTaskScheduler(redisClient, tasksConfig)
+	}()
+
+	// Start agent
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runAgent(ctx, conn, client)
+	}()
+
+	// Start HTTP server
+	r := CreateGinRouter(client)
+	server := &http.Server{
+		Addr:    cfg.ListenAddr,
+		Handler: r,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
-	r := CreateGinRouter(client)
-	if err := r.Run(cfg.ListenAddr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Handle shutdown gracefully
+	<-ctx.Done()
+	log.Println("Shutting down server...")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
 	}
+
+	wg.Wait()
+	log.Println("Server exited properly")
 }
