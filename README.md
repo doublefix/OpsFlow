@@ -71,5 +71,3 @@ sequenceDiagram
     Scheduler-->>API: 释放 VJ 成功
 
 ```
-
-现在我有一个主程序可以在公网，一个 agent 不暴露到公网，现在 agent 需要接收主程序的命令执行任务并返回任务状态，以及主程序需要知道连接了哪些 agnet。我想使用 grpc 来实现通信,帮我设计下,使用 go
