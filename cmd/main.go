@@ -50,7 +50,8 @@ func main() {
 	}
 	defer conn.Close()
 
-	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+	var redisClient redis.Cmdable
+	redisClient = redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs: []string{
 			"10.187.6.3:31000",
 			"10.187.6.4:31001",

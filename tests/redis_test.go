@@ -13,6 +13,8 @@ func TestRedis(t *testing.T) {
 
 	// Cmdable 是 Client 和 ClusterClient 的通用接口
 	var redisClient redis.Cmdable
+	// var redisClient *redis.ClusterClient // 这个是 ClusterClient 的具体类型
+	// var redisClient *redis.Client // 这个是 Client 的具体类型
 
 	if true {
 		redisClient = redis.NewClusterClient(&redis.ClusterOptions{

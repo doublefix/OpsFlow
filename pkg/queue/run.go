@@ -15,7 +15,7 @@ type TaskProcessorConfig struct {
 	Clientset   kubernetes.Interface
 	CRDClient   dynamic.NamespaceableResourceInterface
 	RpcConn     *grpc.ClientConn
-	RedisClient *redis.ClusterClient
+	RedisClient redis.Cmdable
 	WorkerCount int
 	QueueName   string
 }

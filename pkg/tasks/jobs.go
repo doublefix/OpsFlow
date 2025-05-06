@@ -61,7 +61,7 @@ func NodeHeartbeat(ctx context.Context, opts crd.NodeResourceInfoOptions) error 
 
 type QueueConfig struct {
 	Clientset   kubernetes.Interface
-	RedisClient *redis.ClusterClient
+	RedisClient redis.Cmdable
 	QueueName   string
 	PageSize    int64
 }

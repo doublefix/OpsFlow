@@ -11,7 +11,7 @@ import (
 
 var ctx = context.Background()
 
-func renewLock(redisClient *redis.ClusterClient, lockKey string, lockExpire time.Duration, stopChan chan struct{}) {
+func renewLock(redisClient redis.Cmdable, lockKey string, lockExpire time.Duration, stopChan chan struct{}) {
 	ticker := time.NewTicker(lockExpire / 2) // 每过期时间的一半续期一次
 	defer ticker.Stop()
 
@@ -33,7 +33,7 @@ func renewLock(redisClient *redis.ClusterClient, lockKey string, lockExpire time
 	}
 }
 
-func runTask(ctx context.Context, redisClient *redis.ClusterClient, taskName string, taskFunc TaskFunc, wg *sync.WaitGroup) {
+func runTask(ctx context.Context, redisClient redis.Cmdable, taskName string, taskFunc TaskFunc, wg *sync.WaitGroup) {
 	defer wg.Done() // 任务完成后通知 WaitGroup
 
 	lockKey := "job_lock:" + taskName
@@ -75,7 +75,7 @@ func runTask(ctx context.Context, redisClient *redis.ClusterClient, taskName str
 	log.Printf("Task %s completed", taskName)
 }
 
-func scheduleTask(ctx context.Context, redisClient *redis.ClusterClient, taskName string, tickerDuration time.Duration, taskFunc TaskFunc, waitForCompletion bool) {
+func scheduleTask(ctx context.Context, redisClient redis.Cmdable, taskName string, tickerDuration time.Duration, taskFunc TaskFunc, waitForCompletion bool) {
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 

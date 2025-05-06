@@ -16,7 +16,7 @@ type TaskConfig struct {
 	WaitForCompletion bool          // 是否等待上一个任务完成
 }
 
-func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *grpc.ClientConn) map[string]TaskConfig {
+func InitializeTasks(clent core.Client, redisClient redis.Cmdable, grpc *grpc.ClientConn) map[string]TaskConfig {
 	updateNodeInfoConfig := &QueueConfig{
 		Clientset:   clent.Core(),
 		RedisClient: redisClient,
@@ -58,7 +58,7 @@ func InitializeTasks(clent core.Client, redisClient *redis.ClusterClient, grpc *
 	}
 }
 
-func StartTaskScheduler(redisClient *redis.ClusterClient, tasks map[string]TaskConfig) {
+func StartTaskScheduler(redisClient redis.Cmdable, tasks map[string]TaskConfig) {
 	for taskName, taskConfig := range tasks {
 		go scheduleTask(context.Background(), redisClient, taskName, taskConfig.Duration, taskConfig.TaskFunc, taskConfig.WaitForCompletion)
 	}

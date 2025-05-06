@@ -150,7 +150,7 @@ func (p *TaskProcessor) Process(task Task) error {
 	return handler.Handle(task.Payload)
 }
 
-func monitorTaskQueue(ctx context.Context, client *redis.ClusterClient, queueName string, taskChannel chan<- Task) {
+func monitorTaskQueue(ctx context.Context, client redis.Cmdable, queueName string, taskChannel chan<- Task) {
 	for {
 		select {
 		case <-ctx.Done():
