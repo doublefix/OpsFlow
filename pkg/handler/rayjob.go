@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/modcoco/OpsFlow/pkg/configmap"
@@ -11,6 +12,7 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/model"
 	"github.com/modcoco/OpsFlow/pkg/svc"
 	"github.com/modcoco/OpsFlow/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -47,6 +49,75 @@ func CreateRayJobHandle(c *gin.Context) {
 		JobID:     createRayJobInfo.JobID,
 	}
 	c.JSON(200, response)
+}
+
+type DeploymentRequest struct {
+	Deployment appsv1.Deployment `json:"deployment" binding:"required"`
+}
+
+func CreateDeploymentHandle(c *gin.Context) {
+	var req DeploymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	appCtx := core.GetAppContext(c)
+	client := appCtx.Client().Core()
+
+	deploy := req.Deployment
+	if deploy.Namespace == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "deployment.metadata.namespace is required",
+		})
+		return
+	}
+
+	_, err := client.AppsV1().Deployments(deploy.Namespace).Get(
+		appCtx.Ctx(),
+		deploy.Name,
+		metav1.GetOptions{},
+	)
+
+	switch {
+	case err == nil:
+		c.JSON(http.StatusConflict, gin.H{
+			"error": fmt.Sprintf("deployment %s already exists", deploy.Name),
+		})
+		return
+	case !errors.IsNotFound(err):
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	created, err := client.AppsV1().Deployments(deploy.Namespace).Create(
+		appCtx.Ctx(),
+		&deploy,
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"name":      created.Name,
+		"namespace": created.Namespace,
+		"uid":       created.UID,
+	})
+}
+
+func handleK8sError(c *gin.Context, err error) {
+	if statusErr, ok := err.(*errors.StatusError); ok {
+		c.JSON(int(statusErr.ErrStatus.Code), gin.H{
+			"reason":  statusErr.ErrStatus.Reason,
+			"message": statusErr.ErrStatus.Message,
+		})
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+	}
 }
 
 func RayJobInfoHandle(c *gin.Context) {
