@@ -66,6 +66,7 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 		api.GET("/pod", handler.GetPodInfo)
 		api.POST("/raycluster", handler.GetCreateRayClusterInfo)
 		api.POST("/rayjob", handler.CreateRayJobHandle)
+		api.POST("/deployments", handler.CreateDeploymentHandle)
 		api.GET("/rayjob/:namespace/:name", handler.RayJobInfoHandle)
 		api.DELETE("/rayjob/:namespace/:name", handler.RemoveRayJobHandle)
 	}
