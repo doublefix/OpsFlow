@@ -1,14 +1,20 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"testing"
 
 	"github.com/modcoco/OpsFlow/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -87,3 +93,121 @@ func TestGetNodeResources(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildDeployment(t *testing.T) {
+	// 1. 构建标准 Kubernetes Deployment 对象
+	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "nginx-deployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": "nginx",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(3),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "nginx",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "nginx",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.14.2",
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 80,
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromInt(80),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// 2. 创建 Kubernetes JSON 序列化器
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, // 元数据工厂
+		scheme,                  // ObjectCreater
+		scheme,                  // ObjectTyper
+		json.SerializerOptions{
+			Yaml:   false, // 生成 JSON
+			Pretty: true,  // 美化输出
+			Strict: true,  // 严格模式
+		},
+	)
+
+	// 3. 序列化为 JSON
+	var buf bytes.Buffer
+	if err := serializer.Encode(deployment, &buf); err != nil {
+		t.Fatalf("Failed to serialize deployment: %v", err)
+	}
+
+	// 4. 验证 JSON 输出
+	jsonOutput := buf.String()
+	t.Logf("Serialized Deployment JSON:\n%s", jsonOutput)
+
+	// 验证关键字段是否存在
+	expectedFields := []string{
+		`"kind": "Deployment"`,
+		`"apiVersion": "apps/v1"`,
+		`"name": "nginx-deployment"`,
+		`"namespace": "default"`,
+		`"replicas": 3`,
+		`"image": "nginx:1.14.2"`,
+	}
+
+	for _, field := range expectedFields {
+		if !bytes.Contains(buf.Bytes(), []byte(field)) {
+			t.Errorf("Expected field not found in JSON: %s", field)
+		}
+	}
+
+	// 5. 可选：反序列化验证
+	decodedObj, _, err := serializer.Decode(buf.Bytes(), nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to deserialize: %v", err)
+	}
+
+	decodedDeployment, ok := decodedObj.(*appsv1.Deployment)
+	if !ok {
+		t.Fatalf("Decoded object is not a Deployment")
+	}
+
+	// 验证反序列化后的对象
+	if decodedDeployment.Name != "nginx-deployment" {
+		t.Errorf("Expected name 'nginx-deployment', got '%s'", decodedDeployment.Name)
+	}
+	if *decodedDeployment.Spec.Replicas != 3 {
+		t.Errorf("Expected 3 replicas, got %d", *decodedDeployment.Spec.Replicas)
+	}
+}
+
+// 辅助函数：创建 int32 指针
+func int32Ptr(i int32) *int32 { return &i }
