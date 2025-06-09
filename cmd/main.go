@@ -8,20 +8,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/modcoco/OpsFlow/pkg/agent"
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
-	"github.com/modcoco/OpsFlow/pkg/queue"
-	"github.com/modcoco/OpsFlow/pkg/tasks"
-	"github.com/redis/go-redis/v9"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Config struct {
@@ -81,50 +73,6 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 	return r
 }
 
-func createRedisClient(cfg *Config) (redis.Cmdable, error) {
-	if cfg.RedisIsCluster {
-		client := redis.NewClusterClient(&redis.ClusterOptions{
-			Addrs:    cfg.RedisAddrs,
-			Password: cfg.RedisPwd,
-		})
-		if err := client.Ping(context.Background()).Err(); err != nil {
-			return nil, fmt.Errorf("failed to connect to Redis cluster: %w", err)
-		}
-		return client, nil
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddrs[0],
-		Password: cfg.RedisPwd,
-	})
-	if err := client.Ping(context.Background()).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
-	}
-	return client, nil
-}
-
-func runAgent(ctx context.Context, conn *grpc.ClientConn, client core.Client) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			namespace, err := client.Core().CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
-			if err != nil {
-				log.Printf("Get Namespace error: %v", err)
-				continue
-			}
-
-			if err := agent.RunAgent(conn, string(namespace.UID)); err != nil {
-				log.Printf("runAgent exited with error: %v", err)
-			}
-		}
-	}
-}
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -139,67 +87,12 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	// Initialize gRPC connection
-	conn, err := grpc.NewClient(
-		cfg.GrpcAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		log.Fatalf("did not connect to rpc: %v", err)
-	}
-	defer conn.Close()
-
-	redisClient, err := createRedisClient(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var wg sync.WaitGroup
-
-	// Start task queue processor
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		queueConfig := queue.TaskProcessorConfig{
-			Clientset:   client.Core(),
-			CRDClient:   client.DynamicNRI(),
-			RpcConn:     conn,
-			RedisClient: redisClient,
-			WorkerCount: cfg.WorkerCount,
-			QueueName:   cfg.QueueName,
-		}
-		queue.StartTaskQueueProcessor(ctx, queueConfig)
-	}()
-
-	// Start task scheduler
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		tasksConfig := tasks.InitializeTasks(client, redisClient, conn)
-		tasks.StartTaskScheduler(redisClient, tasksConfig)
-	}()
-
-	// Start agent
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		runAgent(ctx, conn, client)
-	}()
-
 	// Start HTTP server
 	r := CreateGinRouter(client)
 	server := &http.Server{
 		Addr:    cfg.ListenAddr,
 		Handler: r,
 	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
 
 	// Handle shutdown gracefully
 	<-ctx.Done()
@@ -212,6 +105,5 @@ func main() {
 		log.Printf("Server shutdown error: %v", err)
 	}
 
-	wg.Wait()
 	log.Println("Server exited properly")
 }
