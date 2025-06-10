@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,13 +14,7 @@ import (
 )
 
 type Config struct {
-	GrpcAddr       string
-	ListenAddr     string
-	QueueName      string
-	WorkerCount    int
-	RedisAddrs     []string
-	RedisPwd       string
-	RedisIsCluster bool
+	ListenAddr string
 }
 
 func getEnv(key, def string) string {
@@ -34,26 +25,10 @@ func getEnv(key, def string) string {
 }
 
 func LoadConfig() (*Config, error) {
-	_ = godotenv.Load()
-
-	workerCount, err := strconv.Atoi(getEnv("WORKER_COUNT", "1"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid WORKER_COUNT: %v", err)
-	}
-
-	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "127.0.0.1:6379"), ",")
-	if len(redisAddrs) == 0 {
-		return nil, fmt.Errorf("no Redis addresses provided")
-	}
+	godotenv.Load()
 
 	return &Config{
-		GrpcAddr:       getEnv("GRPC_ADDR", "localhost:50051"),
-		ListenAddr:     getEnv("LISTEN_ADDR", ":8090"),
-		QueueName:      getEnv("QUEUE_NAME", "task_queue"),
-		WorkerCount:    workerCount,
-		RedisAddrs:     redisAddrs,
-		RedisPwd:       os.Getenv("REDIS_PASSWORD"),
-		RedisIsCluster: getEnv("REDIS_CLUSTER", "false") == "true",
+		ListenAddr: getEnv("LISTEN_ADDR", ":8090"),
 	}, nil
 }
 
@@ -91,7 +66,6 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	// Start HTTP server
 	r := CreateGinRouter(client)
 	server := &http.Server{
 		Addr:    cfg.ListenAddr,
@@ -100,7 +74,6 @@ func main() {
 
 	server.ListenAndServe()
 
-	// Handle shutdown gracefully
 	<-ctx.Done()
 	log.Println("Shutting down server...")
 
