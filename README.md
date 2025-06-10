@@ -71,3 +71,33 @@ sequenceDiagram
     Scheduler-->>API: 释放 VJ 成功
 
 ```
+
+
+```bash
+curl -X POST http://localhost:8090/api/v1/services \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "name": "nginx-service",
+      "namespace": "default",
+      "labels": {
+        "app": "nginx"
+      }
+    },
+    "spec": {
+      "selector": {
+        "app": "nginx"
+      },
+      "ports": [{
+        "protocol": "TCP",
+        "port": 80,
+        "targetPort": 80
+      }],
+      "type": "ClusterIP"
+    }
+  }'
+
+curl -X DELETE "http://localhost:8090/api/v1/services/default/nginx-service"
+```
