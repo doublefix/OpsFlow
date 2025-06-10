@@ -95,6 +95,8 @@ func main() {
 		Handler: r,
 	}
 
+	server.ListenAndServe()
+
 	// Handle shutdown gracefully
 	<-ctx.Done()
 	log.Println("Shutting down server...")

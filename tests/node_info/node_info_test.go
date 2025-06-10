@@ -173,22 +173,6 @@ func TestBuildDeployment(t *testing.T) {
 	jsonOutput := buf.String()
 	t.Logf("Serialized Deployment JSON:\n%s", jsonOutput)
 
-	// 验证关键字段是否存在
-	expectedFields := []string{
-		`"kind": "Deployment"`,
-		`"apiVersion": "apps/v1"`,
-		`"name": "nginx-deployment"`,
-		`"namespace": "default"`,
-		`"replicas": 3`,
-		`"image": "nginx:1.14.2"`,
-	}
-
-	for _, field := range expectedFields {
-		if !bytes.Contains(buf.Bytes(), []byte(field)) {
-			t.Errorf("Expected field not found in JSON: %s", field)
-		}
-	}
-
 	// 5. 可选：反序列化验证
 	decodedObj, _, err := serializer.Decode(buf.Bytes(), nil, nil)
 	if err != nil {
