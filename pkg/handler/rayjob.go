@@ -13,7 +13,7 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/svc"
 	"github.com/modcoco/OpsFlow/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,7 +27,7 @@ func CreateRayJobHandle(c *gin.Context) {
 
 	appCtx := core.GetAppContext(c)
 	existingJob, err := appCtx.Client().Ray().RayV1().RayJobs(clusterConfig.Namespace).Get(appCtx.Ctx(), clusterConfig.Job.Name, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
@@ -51,50 +51,31 @@ func CreateRayJobHandle(c *gin.Context) {
 	c.JSON(200, response)
 }
 
-type DeploymentRequest struct {
-	Deployment appsv1.Deployment `json:"deployment" binding:"required"`
-}
-
 func CreateDeploymentHandle(c *gin.Context) {
-	var req DeploymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var deploy appsv1.Deployment
+	if err := c.ShouldBindJSON(&deploy); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if deploy.Namespace == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "deployment.metadata.namespace is required"})
 		return
 	}
 
 	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core()
+	client := appCtx.Client().Core().AppsV1().Deployments(deploy.Namespace)
 
-	deploy := req.Deployment
-	if deploy.Namespace == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "deployment.metadata.namespace is required",
-		})
-		return
-	}
-
-	_, err := client.AppsV1().Deployments(deploy.Namespace).Get(
-		appCtx.Ctx(),
-		deploy.Name,
-		metav1.GetOptions{},
-	)
-
-	switch {
-	case err == nil:
+	if _, err := client.Get(appCtx.Ctx(), deploy.Name, metav1.GetOptions{}); err == nil {
 		c.JSON(http.StatusConflict, gin.H{
-			"error": fmt.Sprintf("deployment %s already exists", deploy.Name),
+			"error": fmt.Sprintf("deployment %q already exists", deploy.Name),
 		})
 		return
-	case !errors.IsNotFound(err):
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	} else if !k8serrors.IsNotFound(err) {
+		handleK8sError(c, err)
 		return
 	}
 
-	created, err := client.AppsV1().Deployments(deploy.Namespace).Create(
-		appCtx.Ctx(),
-		&deploy,
-		metav1.CreateOptions{},
-	)
+	created, err := client.Create(appCtx.Ctx(), &deploy, metav1.CreateOptions{})
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -108,7 +89,7 @@ func CreateDeploymentHandle(c *gin.Context) {
 }
 
 func handleK8sError(c *gin.Context, err error) {
-	if statusErr, ok := err.(*errors.StatusError); ok {
+	if statusErr, ok := err.(*k8serrors.StatusError); ok {
 		c.JSON(int(statusErr.ErrStatus.Code), gin.H{
 			"reason":  statusErr.ErrStatus.Reason,
 			"message": statusErr.ErrStatus.Message,
@@ -120,6 +101,45 @@ func handleK8sError(c *gin.Context, err error) {
 	}
 }
 
+func DeleteDeploymentHandle(c *gin.Context) {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "namespace and name are required",
+		})
+		return
+	}
+
+	appCtx := core.GetAppContext(c)
+	client := appCtx.Client().Core().AppsV1().Deployments(namespace)
+
+	_, err := client.Get(appCtx.Ctx(), name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "deployment not found",
+			})
+			return
+		}
+		handleK8sError(c, err)
+		return
+	}
+
+	err = client.Delete(appCtx.Ctx(), name, metav1.DeleteOptions{})
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "deployment deleted successfully",
+		"name":      name,
+		"namespace": namespace,
+	})
+}
+
 func RayJobInfoHandle(c *gin.Context) {
 	namespace := c.Param("namespace")
 	jobName := c.Param("name")
@@ -127,7 +147,7 @@ func RayJobInfoHandle(c *gin.Context) {
 	appCtx := core.GetAppContext(c)
 	existingJob, err := appCtx.Client().Ray().RayV1().RayJobs(namespace).Get(appCtx.Ctx(), jobName, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			c.JSON(404, gin.H{"message": "Job not found"})
 			return
 		}
@@ -185,7 +205,7 @@ func RemoveRayJobHandle(c *gin.Context) {
 
 	existingJob, err := appCtx.Client().Ray().RayV1().RayJobs(namespace).Get(appCtx.Ctx(), jobName, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			c.JSON(404, gin.H{"message": "Job not found"})
 			return
 		}

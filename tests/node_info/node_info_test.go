@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"testing"
 
 	"github.com/modcoco/OpsFlow/pkg/utils"
@@ -95,6 +97,7 @@ func TestGetNodeResources(t *testing.T) {
 }
 
 func TestBuildDeployment(t *testing.T) {
+	// curl -X DELETE "http://localhost:8090/api/v1/deployments/default/nginx-deployment"
 	// 1. 构建标准 Kubernetes Deployment 对象
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -191,6 +194,39 @@ func TestBuildDeployment(t *testing.T) {
 	if *decodedDeployment.Spec.Replicas != 3 {
 		t.Errorf("Expected 3 replicas, got %d", *decodedDeployment.Spec.Replicas)
 	}
+
+	fmt.Println(decodedDeployment.ObjectMeta.Namespace)
+
+	jsonData := buf.Bytes()
+
+	// 2. 创建 HTTP 请求
+	apiURL := "http://localhost:8090/api/v1/deployments"
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	// 3. 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	// 如果需要认证，添加认证头
+	// req.Header.Set("Authorization", "Bearer your-token-here")
+
+	// 4. 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 5. 处理响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	t.Logf("Response status: %s", resp.Status)
+	t.Logf("Response body:\n%s", string(body))
 }
 
 // 辅助函数：创建 int32 指针
