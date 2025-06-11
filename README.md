@@ -100,4 +100,7 @@ curl -X POST http://localhost:8090/api/v1/services \
   }'
 
 curl -X DELETE "http://localhost:8090/api/v1/services/default/nginx-service"
+
+curl -X GET "http://opsflow-service:8090/api/v1/pod"
+
 ```
