@@ -157,6 +157,82 @@ func CreateDeploymentHandle(c *gin.Context) {
 	})
 }
 
+func CreatePodHandle(c *gin.Context) {
+	var pod corev1.Pod
+	if err := c.ShouldBindJSON(&pod); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if pod.Namespace == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pod.metadata.namespace is required"})
+		return
+	}
+
+	appCtx := core.GetAppContext(c)
+	client := appCtx.Client().Core().CoreV1().Pods(pod.Namespace)
+
+	if _, err := client.Get(appCtx.Ctx(), pod.Name, metav1.GetOptions{}); err == nil {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": fmt.Sprintf("pod %q already exists", pod.Name),
+		})
+		return
+	} else if !k8serrors.IsNotFound(err) {
+		handleK8sError(c, err)
+		return
+	}
+
+	created, err := client.Create(appCtx.Ctx(), &pod, metav1.CreateOptions{})
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"name":      created.Name,
+		"namespace": created.Namespace,
+		"uid":       created.UID,
+	})
+}
+
+func DeletePodHandle(c *gin.Context) {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "namespace and name are required",
+		})
+		return
+	}
+
+	appCtx := core.GetAppContext(c)
+	client := appCtx.Client().Core().CoreV1().Pods(namespace)
+
+	_, err := client.Get(appCtx.Ctx(), name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "pod not found",
+			})
+			return
+		}
+		handleK8sError(c, err)
+		return
+	}
+
+	err = client.Delete(appCtx.Ctx(), name, metav1.DeleteOptions{})
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "pod deleted successfully",
+		"name":      name,
+		"namespace": namespace,
+	})
+}
+
 func handleK8sError(c *gin.Context, err error) {
 	if statusErr, ok := err.(*k8serrors.StatusError); ok {
 		c.JSON(int(statusErr.ErrStatus.Code), gin.H{
