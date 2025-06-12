@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,6 +11,12 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/job"
 	"github.com/modcoco/OpsFlow/pkg/model"
 	"github.com/modcoco/OpsFlow/pkg/utils"
+	rayv1 "github.com/ray-project/kuberay/ray-operator/apis/ray/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 )
 
 func TestVllmOnRayAutoJob(t *testing.T) {
@@ -140,4 +147,51 @@ func TestGenPythonCode(t *testing.T) {
 		fmt.Println(err)
 	}
 	fmt.Println(runCode)
+}
+
+func TestGenRayJob(t *testing.T) {
+	rayJob := rayv1.RayJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-rayjob",
+			Namespace: "default",
+		},
+		Spec: rayv1.RayJobSpec{
+			Entrypoint:     "python main.py",
+			RayClusterSpec: &rayv1.RayClusterSpec{},
+		},
+	}
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	// _ = rayv1.AddToScheme(scheme)
+
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory,
+		scheme,
+		scheme,
+		json.SerializerOptions{
+			Yaml:   false,
+			Pretty: true,
+			Strict: true,
+		},
+	)
+
+	var buf bytes.Buffer
+	if err := serializer.Encode(&rayJob, &buf); err != nil {
+		t.Fatalf("Failed to serialize deployment: %v", err)
+	}
+	jsonOutput := buf.String()
+	t.Logf("Serialized Deployment JSON:\n%s", jsonOutput)
+
+	// decodedObj, _, err := serializer.Decode(buf.Bytes(), nil, nil)
+	// if err != nil {
+	// 	t.Fatalf("Failed to deserialize: %v", err)
+	// }
+
+	// rayjob, ok := decodedObj.(*rayv1.RayJob)
+	// if !ok {
+	// 	t.Fatalf("Decoded object is not a RayJob")
+	// }
+
+	// t.Logf("%s", rayjob.Name)
 }
