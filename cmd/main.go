@@ -134,20 +134,35 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	client, err := core.NewClient()
-	if err != nil {
-		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
-	}
-
 	// Initialize gRPC connection
+	fmt.Println(cfg.GrpcAddr)
 	conn, err := grpc.NewClient(
 		cfg.GrpcAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+	// conn, err := grpc.NewClient(
+	// 	"idp.baihai.co:443", // 必须带端口
+	// 	grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+	// 		NextProtos: []string{"h2"},  // 强制HTTP/2
+	// 		ServerName: "idp.baihai.co", // SNI
+	// 	})),
+	// )
 	if err != nil {
 		log.Fatalf("did not connect to rpc: %v", err)
 	}
 	defer conn.Close()
+
+	// client1 := pb.NewAgentServiceClient(conn)
+	// _, err = client1.AgentStream(ctx)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	panic("err")
+	// }
+
+	client, err := core.NewClient()
+	if err != nil {
+		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
+	}
 
 	redisClient, err := createRedisClient(cfg)
 	if err != nil {
