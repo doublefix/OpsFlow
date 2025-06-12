@@ -152,8 +152,8 @@ func TestBuildDeployment(t *testing.T) {
 
 	// 2. 创建 Kubernetes JSON 序列化器
 	scheme := runtime.NewScheme()
-	_ = appsv1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
+	appsv1.AddToScheme(scheme)
+	corev1.AddToScheme(scheme)
 	serializer := json.NewSerializerWithOptions(
 		json.DefaultMetaFactory, // 元数据工厂
 		scheme,                  // ObjectCreater
