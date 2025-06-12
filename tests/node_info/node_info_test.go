@@ -98,7 +98,6 @@ func TestGetNodeResources(t *testing.T) {
 
 func TestBuildDeployment(t *testing.T) {
 	// curl -X DELETE "http://localhost:8090/api/v1/deployments/default/nginx-deployment"
-	// 1. 构建标准 Kubernetes Deployment 对象
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -166,17 +165,14 @@ func TestBuildDeployment(t *testing.T) {
 		},
 	)
 
-	// 3. 序列化为 JSON
 	var buf bytes.Buffer
 	if err := serializer.Encode(deployment, &buf); err != nil {
 		t.Fatalf("Failed to serialize deployment: %v", err)
 	}
-
-	// 4. 验证 JSON 输出
 	jsonOutput := buf.String()
 	t.Logf("Serialized Deployment JSON:\n%s", jsonOutput)
 
-	// 5. 可选：反序列化验证
+	// 反序列化
 	decodedObj, _, err := serializer.Decode(buf.Bytes(), nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to deserialize: %v", err)
@@ -199,19 +195,15 @@ func TestBuildDeployment(t *testing.T) {
 
 	jsonData := buf.Bytes()
 
-	// 2. 创建 HTTP 请求
-	apiURL := "http://localhost:8090/api/v1/deployments"
+	// 创建 HTTP 请求
+	apiURL := "http://ubuntu:30968/api/v1/deployments"
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
 
-	// 3. 设置请求头
 	req.Header.Set("Content-Type", "application/json")
-	// 如果需要认证，添加认证头
-	// req.Header.Set("Authorization", "Bearer your-token-here")
 
-	// 4. 发送请求
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -219,7 +211,6 @@ func TestBuildDeployment(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	// 5. 处理响应
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Failed to read response body: %v", err)
