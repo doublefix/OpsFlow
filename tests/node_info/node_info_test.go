@@ -222,3 +222,61 @@ func TestBuildDeployment(t *testing.T) {
 
 // 辅助函数：创建 int32 指针
 func int32Ptr(i int32) *int32 { return &i }
+
+func TestBuildDeploymentSimple(t *testing.T) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "nginx-deployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": "nginx",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "nginx",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "nginx",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.14.2",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// 2. 创建 Kubernetes JSON 序列化器
+	scheme := runtime.NewScheme()
+	appsv1.AddToScheme(scheme)
+	corev1.AddToScheme(scheme)
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, // 元数据工厂
+		scheme,                  // ObjectCreater
+		scheme,                  // ObjectTyper
+		json.SerializerOptions{
+			Yaml:   false, // 生成 JSON
+			Pretty: true,  // 美化输出
+			Strict: true,  // 严格模式
+		},
+	)
+
+	jsonData, err := runtime.Encode(serializer, deployment)
+	if err != nil {
+		t.Fatalf("Failed to serialize deployment: %v", err)
+	}
+
+	t.Logf("Serialized Deployment JSON:\n%s", string(jsonData))
+
+}
