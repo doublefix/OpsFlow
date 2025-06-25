@@ -38,12 +38,13 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
-		api.GET("/pod", handler.GetPodInfo)
+		// api.GET("/pod", handler.GetPodInfo)
 		api.POST("/raycluster", handler.GetCreateRayClusterInfo)
 		api.POST("/rayjob", handler.CreateRayJobHandle)
 		api.GET("/node", handler.GetNodesHandle)
 		api.POST("/deployments", handler.CreateDeploymentHandle)
 		api.POST("/pod", handler.CreatePodHandle)
+		api.GET("/pod", handler.GetPodsHandle)
 		api.DELETE("/deployments/:namespace/:name", handler.DeleteDeploymentHandle)
 		api.DELETE("/pod/:namespace/:name", handler.DeletePodHandle)
 		api.POST("/services", handler.CreateServiceHandle)

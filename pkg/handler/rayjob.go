@@ -204,6 +204,53 @@ func GetNodesHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, nodeList)
 }
 
+// curl http://localhost:8090/api/v1/pod\?limit\=1\&namespace\=kube-system
+func GetPodsHandle(c *gin.Context) {
+	namespace := c.DefaultQuery("namespace", "default")
+	podName := c.Query("name")
+	labelSelector := c.Query("labelSelector")
+	limitStr := c.Query("limit")
+	continueToken := c.Query("continue")
+
+	appCtx := core.GetAppContext(c)
+	client := appCtx.Client().Core().CoreV1().Pods(namespace)
+
+	if podName != "" {
+		pod, err := client.Get(appCtx.Ctx(), podName, metav1.GetOptions{})
+		if err != nil {
+			handleK8sError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, pod)
+		return
+	}
+
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+
+	if limitStr != "" {
+		limit, err := strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+			return
+		}
+		listOptions.Limit = limit
+	}
+
+	if continueToken != "" {
+		listOptions.Continue = continueToken
+	}
+
+	podList, err := client.List(appCtx.Ctx(), listOptions)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, podList)
+}
+
 func CreatePodHandle(c *gin.Context) {
 	var pod corev1.Pod
 	if err := c.ShouldBindJSON(&pod); err != nil {
