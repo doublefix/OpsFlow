@@ -107,4 +107,12 @@ curl -X GET "http://opsflow-service:8090/api/v1/pod"
 curl -X GET "http://ubuntu:30968/api/v1/node?limit=1" | jq .
 
 
+protoc \
+  --proto_path=/usr/include \
+  --proto_path=./pkg/api/proto \
+  --go-grpc_out=./pkg/api/proto \
+  --go_out=./pkg/api/proto \
+  --go-grpc_opt=paths=source_relative \
+  pkg/api/proto/podexec.proto
+
 ```
