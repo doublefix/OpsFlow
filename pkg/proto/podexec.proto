@@ -1,8 +1,7 @@
 syntax = "proto3";
 
-package main;
-
-option go_package = "./";
+package proto;
+option go_package = ".;proto";
 
 // Pod 终端执行服务
 service PodExecService {

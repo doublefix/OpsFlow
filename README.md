@@ -117,10 +117,9 @@ protoc \
 
 protoc \
   --proto_path=/usr/include \
-  --proto_path=./pkg/api/proto \
-  --go-grpc_out=./pkg/api/proto \
-  --go_out=./pkg/api/proto \
+  --proto_path=./pkg/proto \
+  --go-grpc_out=./pkg/proto \
+  --go_out=./pkg/proto \
   --go-grpc_opt=paths=source_relative \
-  --go_opt=Mpodexec.proto=github.com/modcoco/OpsFlow/pkg/api/proto \
-  pkg/api/proto/podexec.proto
+  pkg/proto/podexec.proto
 ```
