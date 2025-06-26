@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"testing"
 
@@ -12,7 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 func TestGetNodeResources(t *testing.T) {
@@ -179,4 +182,60 @@ func GetInternalIP(node *v1.Node) string {
 		}
 	}
 	return ""
+}
+
+func TestSSH(t *testing.T) {
+	// 加载 kubeconfig
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		t.Fatalf("无法加载 kubeconfig: %v", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("无法创建 Kubernetes 客户端: %v", err)
+	}
+
+	option := &v1.PodExecOptions{
+		Container: "calico-node",
+		Command:   []string{"bash", "-c", "pwd"},
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+	}
+
+	// 构造 exec 请求
+	req := clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name("calico-node-rcjsm").
+		Namespace("kube-system").
+		SubResource("exec").
+		VersionedParams(option, scheme.ParameterCodec)
+
+	fmt.Printf("请求 URL: %s\n", req.URL())
+
+	exec, err := remotecommand.NewWebSocketExecutor(cfg, "POST", req.URL().String())
+	if err != nil {
+		t.Fatalf("创建 executor 失败: %v", err)
+	}
+
+	// exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// 执行远程命令并连接本地标准输入输出
+	ctx := context.Background()
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stdout,
+		Tty:    false,
+	})
+	if err != nil {
+		t.Fatalf("执行远程命令失败: %v", err)
+	}
 }
