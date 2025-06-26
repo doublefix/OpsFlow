@@ -185,7 +185,6 @@ func GetInternalIP(node *v1.Node) string {
 }
 
 func TestSSH(t *testing.T) {
-	// 加载 kubeconfig
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{},
@@ -205,9 +204,9 @@ func TestSSH(t *testing.T) {
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
+		TTY:       false,
 	}
 
-	// 构造 exec 请求
 	req := clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name("calico-node-rcjsm").
@@ -217,22 +216,29 @@ func TestSSH(t *testing.T) {
 
 	fmt.Printf("请求 URL: %s\n", req.URL())
 
-	exec, err := remotecommand.NewWebSocketExecutor(cfg, "POST", req.URL().String())
-	if err != nil {
-		t.Fatalf("创建 executor 失败: %v", err)
+	wsExec, wsErr := remotecommand.NewWebSocketExecutor(cfg, "POST", req.URL().String())
+	spdyExec, spdyErr := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+
+	if wsErr != nil || spdyErr != nil {
+		t.Fatalf("初始化执行器失败: websocket: %v, spdy: %v", wsErr, spdyErr)
 	}
 
-	// exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	exec, err := remotecommand.NewFallbackExecutor(
+		wsExec,
+		spdyExec,
+		func(err error) bool {
+			return err != nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("创建 FallbackExecutor 失败: %v", err)
+	}
 
-	// 执行远程命令并连接本地标准输入输出
 	ctx := context.Background()
 	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
-		Stderr: os.Stdout,
+		Stderr: os.Stderr,
 		Tty:    false,
 	})
 	if err != nil {
