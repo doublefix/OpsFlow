@@ -10,11 +10,12 @@ service PodExecService {
 
 // 初始化信息，必须作为第一个发送
 message ExecInit {
-  string namespace = 1;
-  string pod_name = 2;
-  string container_name = 3;
-  repeated string command = 4;
-  bool tty = 5;
+  string session_id = 1;           // 会话唯一标识（客户端生成或服务端分配）
+  string namespace = 2;
+  string pod_name = 3;
+  string container_name = 4;
+  repeated string command = 5;
+  bool tty = 6;
 }
 
 // 调整终端窗口大小（适用于 TTY 模式）

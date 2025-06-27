@@ -204,7 +204,7 @@ func TestSSH(t *testing.T) {
 
 	option := &v1.PodExecOptions{
 		Container: "calico-node",
-		Command:   []string{"bash", "-c", "pwd"},
+		Command:   []string{"bash", "-c", "ls"},
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
@@ -276,15 +276,15 @@ func TestSSHClient(t *testing.T) {
 		log.Fatalf("创建流失败: %v", err)
 	}
 
-	// 发送初始化消息
+	// 发送初始化消息（不带 session_id，服务端会生成）
 	err = stream.Send(&pb.ExecMessage{
 		Content: &pb.ExecMessage_Init{
 			Init: &pb.ExecInit{
 				Namespace:     namespace,
 				PodName:       podName,
 				ContainerName: containerName,
-				Command:       []string{"ls", "-l"}, // 要执行的命令
-				Tty:           false,                // 非交互式
+				Command:       []string{"sh"}, // 要执行的命令
+				Tty:           true,           // 非交互式
 			},
 		},
 	})
@@ -292,16 +292,17 @@ func TestSSHClient(t *testing.T) {
 		log.Fatalf("发送初始化消息失败: %v", err)
 	}
 
+	// 会话 ID，用于关闭时确认
+	var sessionID string
+
 	// 接收服务器响应
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for {
 			msg, err := stream.Recv()
 			if err != nil {
-				if err.Error() == "EOF" {
-					log.Println("服务器关闭连接")
-				} else {
-					log.Printf("接收消息错误: %v", err)
-				}
+				log.Printf("接收消息错误: %v", err)
 				return
 			}
 
@@ -313,22 +314,33 @@ func TestSSHClient(t *testing.T) {
 			case *pb.ExecMessage_Error:
 				log.Printf("服务器返回错误: %s", content.Error)
 				return
+			case *pb.ExecMessage_Heartbeat:
+				if strings.HasPrefix(content.Heartbeat, "session:") {
+					sessionID = strings.TrimPrefix(content.Heartbeat, "session:")
+					log.Printf("接收到 session_id: %s", sessionID)
+				}
 			}
 		}
 	}()
 
-	// 等待几秒让命令执行完成
+	// 等待几秒命令执行完成
 	time.Sleep(3 * time.Second)
 
-	// 发送关闭消息
-	err = stream.Send(&pb.ExecMessage{
-		Content: &pb.ExecMessage_Close{Close: true},
-	})
-	if err != nil {
-		log.Printf("发送关闭消息失败: %v", err)
+	// 发送关闭消息（包含 session_id）
+	if sessionID != "" {
+		err = stream.Send(&pb.ExecMessage{
+			Content: &pb.ExecMessage_Close{Close: true},
+		})
+		if err != nil {
+			log.Printf("发送关闭消息失败: %v", err)
+		} else {
+			log.Printf("发送关闭请求成功 session_id=%s", sessionID)
+		}
+	} else {
+		log.Println("未收到 session_id，跳过关闭请求")
 	}
 
-	// 等待输出完成
-	time.Sleep(1 * time.Second)
+	// 等待接收协程完成
+	<-done
 	log.Println("客户端退出")
 }
