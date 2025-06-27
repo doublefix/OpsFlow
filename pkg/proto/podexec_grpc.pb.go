@@ -25,10 +25,9 @@ const (
 // PodExecServiceClient is the client API for PodExecService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// Pod 终端执行服务
 type PodExecServiceClient interface {
-	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecMessage, ExecMessage], error)
+	// Establishes a bidirectional stream for executing commands in a pod
+	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecRequest, ExecResponse], error)
 }
 
 type podExecServiceClient struct {
@@ -39,26 +38,25 @@ func NewPodExecServiceClient(cc grpc.ClientConnInterface) PodExecServiceClient {
 	return &podExecServiceClient{cc}
 }
 
-func (c *podExecServiceClient) Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecMessage, ExecMessage], error) {
+func (c *podExecServiceClient) Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecRequest, ExecResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &PodExecService_ServiceDesc.Streams[0], PodExecService_Exec_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[ExecMessage, ExecMessage]{ClientStream: stream}
+	x := &grpc.GenericClientStream[ExecRequest, ExecResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type PodExecService_ExecClient = grpc.BidiStreamingClient[ExecMessage, ExecMessage]
+type PodExecService_ExecClient = grpc.BidiStreamingClient[ExecRequest, ExecResponse]
 
 // PodExecServiceServer is the server API for PodExecService service.
 // All implementations must embed UnimplementedPodExecServiceServer
 // for forward compatibility.
-//
-// Pod 终端执行服务
 type PodExecServiceServer interface {
-	Exec(grpc.BidiStreamingServer[ExecMessage, ExecMessage]) error
+	// Establishes a bidirectional stream for executing commands in a pod
+	Exec(grpc.BidiStreamingServer[ExecRequest, ExecResponse]) error
 	mustEmbedUnimplementedPodExecServiceServer()
 }
 
@@ -69,7 +67,7 @@ type PodExecServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedPodExecServiceServer struct{}
 
-func (UnimplementedPodExecServiceServer) Exec(grpc.BidiStreamingServer[ExecMessage, ExecMessage]) error {
+func (UnimplementedPodExecServiceServer) Exec(grpc.BidiStreamingServer[ExecRequest, ExecResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedPodExecServiceServer) mustEmbedUnimplementedPodExecServiceServer() {}
@@ -94,11 +92,11 @@ func RegisterPodExecServiceServer(s grpc.ServiceRegistrar, srv PodExecServiceSer
 }
 
 func _PodExecService_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(PodExecServiceServer).Exec(&grpc.GenericServerStream[ExecMessage, ExecMessage]{ServerStream: stream})
+	return srv.(PodExecServiceServer).Exec(&grpc.GenericServerStream[ExecRequest, ExecResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type PodExecService_ExecServer = grpc.BidiStreamingServer[ExecMessage, ExecMessage]
+type PodExecService_ExecServer = grpc.BidiStreamingServer[ExecRequest, ExecResponse]
 
 // PodExecService_ServiceDesc is the grpc.ServiceDesc for PodExecService service.
 // It's only intended for direct use with grpc.RegisterService,

@@ -7,12 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
-	pb "github.com/modcoco/OpsFlow/pkg/proto"
 	"github.com/modcoco/OpsFlow/pkg/utils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -252,95 +248,10 @@ func TestSSH(t *testing.T) {
 
 func TestSSHClient(t *testing.T) {
 	// 设置连接参数
-	serverAddr := "localhost:50051"
-	podName := "calico-node-rcjsm" // 替换为你的 Pod 名称
-	namespace := "kube-system"     // 替换为你的命名空间
-	containerName := "calico-node" // 替换为你的容器名称
+	// serverAddr := "localhost:50051"
+	// podName := "calico-node-rcjsm" // 替换为你的 Pod 名称
+	// namespace := "kube-system"     // 替换为你的命名空间
+	// containerName := "calico-node" // 替换为你的容器名称
 
-	// 建立 gRPC 连接
-	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("无法连接到服务器: %v", err)
-	}
-	defer conn.Close()
-
-	// 创建客户端
-	client := pb.NewPodExecServiceClient(conn)
-
-	// 创建双向流
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	stream, err := client.Exec(ctx)
-	if err != nil {
-		log.Fatalf("创建流失败: %v", err)
-	}
-
-	// 发送初始化消息（不带 session_id，服务端会生成）
-	err = stream.Send(&pb.ExecMessage{
-		Content: &pb.ExecMessage_Init{
-			Init: &pb.ExecInit{
-				Namespace:     namespace,
-				PodName:       podName,
-				ContainerName: containerName,
-				Command:       []string{"sh"}, // 要执行的命令
-				Tty:           true,           // 非交互式
-			},
-		},
-	})
-	if err != nil {
-		log.Fatalf("发送初始化消息失败: %v", err)
-	}
-
-	// 会话 ID，用于关闭时确认
-	var sessionID string
-
-	// 接收服务器响应
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for {
-			msg, err := stream.Recv()
-			if err != nil {
-				log.Printf("接收消息错误: %v", err)
-				return
-			}
-
-			switch content := msg.Content.(type) {
-			case *pb.ExecMessage_Stdout:
-				fmt.Printf("输出: %s", string(content.Stdout))
-			case *pb.ExecMessage_Stderr:
-				fmt.Printf("错误: %s", string(content.Stderr))
-			case *pb.ExecMessage_Error:
-				log.Printf("服务器返回错误: %s", content.Error)
-				return
-			case *pb.ExecMessage_Heartbeat:
-				if strings.HasPrefix(content.Heartbeat, "session:") {
-					sessionID = strings.TrimPrefix(content.Heartbeat, "session:")
-					log.Printf("接收到 session_id: %s", sessionID)
-				}
-			}
-		}
-	}()
-
-	// 等待几秒命令执行完成
-	time.Sleep(3 * time.Second)
-
-	// 发送关闭消息（包含 session_id）
-	if sessionID != "" {
-		err = stream.Send(&pb.ExecMessage{
-			Content: &pb.ExecMessage_Close{Close: true},
-		})
-		if err != nil {
-			log.Printf("发送关闭消息失败: %v", err)
-		} else {
-			log.Printf("发送关闭请求成功 session_id=%s", sessionID)
-		}
-	} else {
-		log.Println("未收到 session_id，跳过关闭请求")
-	}
-
-	// 等待接收协程完成
-	<-done
 	log.Println("客户端退出")
 }

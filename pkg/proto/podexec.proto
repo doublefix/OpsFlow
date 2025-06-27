@@ -3,37 +3,46 @@ syntax = "proto3";
 package proto;
 option go_package = ".;proto";
 
-// Pod 终端执行服务
 service PodExecService {
-  rpc Exec(stream ExecMessage) returns (stream ExecMessage);
+    // Establishes a bidirectional stream for executing commands in a pod
+    rpc Exec(stream ExecRequest) returns (stream ExecResponse) {};
 }
 
-// 初始化信息，必须作为第一个发送
-message ExecInit {
-  string session_id = 1;           // 会话唯一标识（客户端生成或服务端分配）
-  string namespace = 2;
-  string pod_name = 3;
-  string container_name = 4;
-  repeated string command = 5;
-  bool tty = 6;
+message ExecRequest {
+    oneof input {
+        // Initial configuration for the exec session
+        ExecConfig config = 1;
+        
+        // Input data to send to the process's stdin
+        bytes stdin = 2;
+        
+        // Terminal resize events
+        TerminalSize resize = 3;
+    }
 }
 
-// 调整终端窗口大小（适用于 TTY 模式）
-message ExecResize {
-  int32 cols = 1;  // 终端列数
-  int32 rows = 2;  // 终端行数
+message ExecConfig {
+    string namespace = 1;
+    string pod_name = 2;
+    string container = 3;
+    repeated string command = 4; // e.g. ["bash"]
+    bool tty = 5;
 }
 
-// 主消息类型，双向流中传输的内容
-message ExecMessage {
-  oneof content {
-    ExecInit init = 1;         // 初始化连接
-    bytes stdin = 2;           // 用户输入
-    bytes stdout = 3;          // 标准输出
-    bytes stderr = 4;          // 标准错误输出
-    ExecResize resize = 5;     // 终端窗口调整
-    string error = 6;          // 错误信息
-    bool close = 7;            // 请求关闭连接
-    string heartbeat = 8;      // 心跳包，可选
-  }
+message TerminalSize {
+    uint32 width = 1;
+    uint32 height = 2;
+}
+
+message ExecResponse {
+    oneof output {
+        // Output data from the process's stdout
+        bytes stdout = 1;
+        
+        // Output data from the process's stderr
+        bytes stderr = 2;
+        
+        // Session closed message
+        bool closed = 3;
+    }
 }

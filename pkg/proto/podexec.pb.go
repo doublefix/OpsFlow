@@ -21,33 +21,32 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// 初始化信息，必须作为第一个发送
-type ExecInit struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 会话唯一标识（客户端生成或服务端分配）
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	PodName       string                 `protobuf:"bytes,3,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	ContainerName string                 `protobuf:"bytes,4,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
-	Command       []string               `protobuf:"bytes,5,rep,name=command,proto3" json:"command,omitempty"`
-	Tty           bool                   `protobuf:"varint,6,opt,name=tty,proto3" json:"tty,omitempty"`
+type ExecRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Input:
+	//
+	//	*ExecRequest_Config
+	//	*ExecRequest_Stdin
+	//	*ExecRequest_Resize
+	Input         isExecRequest_Input `protobuf_oneof:"input"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExecInit) Reset() {
-	*x = ExecInit{}
+func (x *ExecRequest) Reset() {
+	*x = ExecRequest{}
 	mi := &file_podexec_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ExecInit) String() string {
+func (x *ExecRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ExecInit) ProtoMessage() {}
+func (*ExecRequest) ProtoMessage() {}
 
-func (x *ExecInit) ProtoReflect() protoreflect.Message {
+func (x *ExecRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_podexec_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -59,327 +58,338 @@ func (x *ExecInit) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExecInit.ProtoReflect.Descriptor instead.
-func (*ExecInit) Descriptor() ([]byte, []int) {
+// Deprecated: Use ExecRequest.ProtoReflect.Descriptor instead.
+func (*ExecRequest) Descriptor() ([]byte, []int) {
 	return file_podexec_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ExecInit) GetSessionId() string {
+func (x *ExecRequest) GetInput() isExecRequest_Input {
 	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
-func (x *ExecInit) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ExecInit) GetPodName() string {
-	if x != nil {
-		return x.PodName
-	}
-	return ""
-}
-
-func (x *ExecInit) GetContainerName() string {
-	if x != nil {
-		return x.ContainerName
-	}
-	return ""
-}
-
-func (x *ExecInit) GetCommand() []string {
-	if x != nil {
-		return x.Command
+		return x.Input
 	}
 	return nil
 }
 
-func (x *ExecInit) GetTty() bool {
+func (x *ExecRequest) GetConfig() *ExecConfig {
 	if x != nil {
-		return x.Tty
-	}
-	return false
-}
-
-// 调整终端窗口大小（适用于 TTY 模式）
-type ExecResize struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Cols          int32                  `protobuf:"varint,1,opt,name=cols,proto3" json:"cols,omitempty"` // 终端列数
-	Rows          int32                  `protobuf:"varint,2,opt,name=rows,proto3" json:"rows,omitempty"` // 终端行数
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ExecResize) Reset() {
-	*x = ExecResize{}
-	mi := &file_podexec_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ExecResize) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ExecResize) ProtoMessage() {}
-
-func (x *ExecResize) ProtoReflect() protoreflect.Message {
-	mi := &file_podexec_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ExecResize.ProtoReflect.Descriptor instead.
-func (*ExecResize) Descriptor() ([]byte, []int) {
-	return file_podexec_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *ExecResize) GetCols() int32 {
-	if x != nil {
-		return x.Cols
-	}
-	return 0
-}
-
-func (x *ExecResize) GetRows() int32 {
-	if x != nil {
-		return x.Rows
-	}
-	return 0
-}
-
-// 主消息类型，双向流中传输的内容
-type ExecMessage struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Content:
-	//
-	//	*ExecMessage_Init
-	//	*ExecMessage_Stdin
-	//	*ExecMessage_Stdout
-	//	*ExecMessage_Stderr
-	//	*ExecMessage_Resize
-	//	*ExecMessage_Error
-	//	*ExecMessage_Close
-	//	*ExecMessage_Heartbeat
-	Content       isExecMessage_Content `protobuf_oneof:"content"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ExecMessage) Reset() {
-	*x = ExecMessage{}
-	mi := &file_podexec_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ExecMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ExecMessage) ProtoMessage() {}
-
-func (x *ExecMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_podexec_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ExecMessage.ProtoReflect.Descriptor instead.
-func (*ExecMessage) Descriptor() ([]byte, []int) {
-	return file_podexec_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *ExecMessage) GetContent() isExecMessage_Content {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *ExecMessage) GetInit() *ExecInit {
-	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Init); ok {
-			return x.Init
+		if x, ok := x.Input.(*ExecRequest_Config); ok {
+			return x.Config
 		}
 	}
 	return nil
 }
 
-func (x *ExecMessage) GetStdin() []byte {
+func (x *ExecRequest) GetStdin() []byte {
 	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Stdin); ok {
+		if x, ok := x.Input.(*ExecRequest_Stdin); ok {
 			return x.Stdin
 		}
 	}
 	return nil
 }
 
-func (x *ExecMessage) GetStdout() []byte {
+func (x *ExecRequest) GetResize() *TerminalSize {
 	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Stdout); ok {
-			return x.Stdout
-		}
-	}
-	return nil
-}
-
-func (x *ExecMessage) GetStderr() []byte {
-	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Stderr); ok {
-			return x.Stderr
-		}
-	}
-	return nil
-}
-
-func (x *ExecMessage) GetResize() *ExecResize {
-	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Resize); ok {
+		if x, ok := x.Input.(*ExecRequest_Resize); ok {
 			return x.Resize
 		}
 	}
 	return nil
 }
 
-func (x *ExecMessage) GetError() string {
+type isExecRequest_Input interface {
+	isExecRequest_Input()
+}
+
+type ExecRequest_Config struct {
+	// Initial configuration for the exec session
+	Config *ExecConfig `protobuf:"bytes,1,opt,name=config,proto3,oneof"`
+}
+
+type ExecRequest_Stdin struct {
+	// Input data to send to the process's stdin
+	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3,oneof"`
+}
+
+type ExecRequest_Resize struct {
+	// Terminal resize events
+	Resize *TerminalSize `protobuf:"bytes,3,opt,name=resize,proto3,oneof"`
+}
+
+func (*ExecRequest_Config) isExecRequest_Input() {}
+
+func (*ExecRequest_Stdin) isExecRequest_Input() {}
+
+func (*ExecRequest_Resize) isExecRequest_Input() {}
+
+type ExecConfig struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	PodName       string                 `protobuf:"bytes,2,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
+	Container     string                 `protobuf:"bytes,3,opt,name=container,proto3" json:"container,omitempty"`
+	Command       []string               `protobuf:"bytes,4,rep,name=command,proto3" json:"command,omitempty"` // e.g. ["bash"]
+	Tty           bool                   `protobuf:"varint,5,opt,name=tty,proto3" json:"tty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecConfig) Reset() {
+	*x = ExecConfig{}
+	mi := &file_podexec_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecConfig) ProtoMessage() {}
+
+func (x *ExecConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_podexec_proto_msgTypes[1]
 	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Error); ok {
-			return x.Error
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
 		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecConfig.ProtoReflect.Descriptor instead.
+func (*ExecConfig) Descriptor() ([]byte, []int) {
+	return file_podexec_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ExecConfig) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
 	}
 	return ""
 }
 
-func (x *ExecMessage) GetClose() bool {
+func (x *ExecConfig) GetPodName() string {
 	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Close); ok {
-			return x.Close
+		return x.PodName
+	}
+	return ""
+}
+
+func (x *ExecConfig) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *ExecConfig) GetCommand() []string {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *ExecConfig) GetTty() bool {
+	if x != nil {
+		return x.Tty
+	}
+	return false
+}
+
+type TerminalSize struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Width         uint32                 `protobuf:"varint,1,opt,name=width,proto3" json:"width,omitempty"`
+	Height        uint32                 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TerminalSize) Reset() {
+	*x = TerminalSize{}
+	mi := &file_podexec_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TerminalSize) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TerminalSize) ProtoMessage() {}
+
+func (x *TerminalSize) ProtoReflect() protoreflect.Message {
+	mi := &file_podexec_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TerminalSize.ProtoReflect.Descriptor instead.
+func (*TerminalSize) Descriptor() ([]byte, []int) {
+	return file_podexec_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TerminalSize) GetWidth() uint32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *TerminalSize) GetHeight() uint32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+type ExecResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Output:
+	//
+	//	*ExecResponse_Stdout
+	//	*ExecResponse_Stderr
+	//	*ExecResponse_Closed
+	Output        isExecResponse_Output `protobuf_oneof:"output"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecResponse) Reset() {
+	*x = ExecResponse{}
+	mi := &file_podexec_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecResponse) ProtoMessage() {}
+
+func (x *ExecResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_podexec_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecResponse.ProtoReflect.Descriptor instead.
+func (*ExecResponse) Descriptor() ([]byte, []int) {
+	return file_podexec_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ExecResponse) GetOutput() isExecResponse_Output {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *ExecResponse) GetStdout() []byte {
+	if x != nil {
+		if x, ok := x.Output.(*ExecResponse_Stdout); ok {
+			return x.Stdout
+		}
+	}
+	return nil
+}
+
+func (x *ExecResponse) GetStderr() []byte {
+	if x != nil {
+		if x, ok := x.Output.(*ExecResponse_Stderr); ok {
+			return x.Stderr
+		}
+	}
+	return nil
+}
+
+func (x *ExecResponse) GetClosed() bool {
+	if x != nil {
+		if x, ok := x.Output.(*ExecResponse_Closed); ok {
+			return x.Closed
 		}
 	}
 	return false
 }
 
-func (x *ExecMessage) GetHeartbeat() string {
-	if x != nil {
-		if x, ok := x.Content.(*ExecMessage_Heartbeat); ok {
-			return x.Heartbeat
-		}
-	}
-	return ""
+type isExecResponse_Output interface {
+	isExecResponse_Output()
 }
 
-type isExecMessage_Content interface {
-	isExecMessage_Content()
+type ExecResponse_Stdout struct {
+	// Output data from the process's stdout
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3,oneof"`
 }
 
-type ExecMessage_Init struct {
-	Init *ExecInit `protobuf:"bytes,1,opt,name=init,proto3,oneof"` // 初始化连接
+type ExecResponse_Stderr struct {
+	// Output data from the process's stderr
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3,oneof"`
 }
 
-type ExecMessage_Stdin struct {
-	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3,oneof"` // 用户输入
+type ExecResponse_Closed struct {
+	// Session closed message
+	Closed bool `protobuf:"varint,3,opt,name=closed,proto3,oneof"`
 }
 
-type ExecMessage_Stdout struct {
-	Stdout []byte `protobuf:"bytes,3,opt,name=stdout,proto3,oneof"` // 标准输出
-}
+func (*ExecResponse_Stdout) isExecResponse_Output() {}
 
-type ExecMessage_Stderr struct {
-	Stderr []byte `protobuf:"bytes,4,opt,name=stderr,proto3,oneof"` // 标准错误输出
-}
+func (*ExecResponse_Stderr) isExecResponse_Output() {}
 
-type ExecMessage_Resize struct {
-	Resize *ExecResize `protobuf:"bytes,5,opt,name=resize,proto3,oneof"` // 终端窗口调整
-}
-
-type ExecMessage_Error struct {
-	Error string `protobuf:"bytes,6,opt,name=error,proto3,oneof"` // 错误信息
-}
-
-type ExecMessage_Close struct {
-	Close bool `protobuf:"varint,7,opt,name=close,proto3,oneof"` // 请求关闭连接
-}
-
-type ExecMessage_Heartbeat struct {
-	Heartbeat string `protobuf:"bytes,8,opt,name=heartbeat,proto3,oneof"` // 心跳包，可选
-}
-
-func (*ExecMessage_Init) isExecMessage_Content() {}
-
-func (*ExecMessage_Stdin) isExecMessage_Content() {}
-
-func (*ExecMessage_Stdout) isExecMessage_Content() {}
-
-func (*ExecMessage_Stderr) isExecMessage_Content() {}
-
-func (*ExecMessage_Resize) isExecMessage_Content() {}
-
-func (*ExecMessage_Error) isExecMessage_Content() {}
-
-func (*ExecMessage_Close) isExecMessage_Content() {}
-
-func (*ExecMessage_Heartbeat) isExecMessage_Content() {}
+func (*ExecResponse_Closed) isExecResponse_Output() {}
 
 var File_podexec_proto protoreflect.FileDescriptor
 
 var file_podexec_proto_rawDesc = string([]byte{
 	0x0a, 0x0d, 0x70, 0x6f, 0x64, 0x65, 0x78, 0x65, 0x63, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12,
-	0x05, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xb5, 0x01, 0x0a, 0x08, 0x45, 0x78, 0x65, 0x63, 0x49,
-	0x6e, 0x69, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x5f, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e,
-	0x49, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65,
-	0x12, 0x19, 0x0a, 0x08, 0x70, 0x6f, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x07, 0x70, 0x6f, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x25, 0x0a, 0x0e, 0x63,
-	0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x0d, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x4e, 0x61,
-	0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x05, 0x20,
-	0x03, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x10, 0x0a, 0x03,
-	0x74, 0x74, 0x79, 0x18, 0x06, 0x20, 0x01, 0x28, 0x08, 0x52, 0x03, 0x74, 0x74, 0x79, 0x22, 0x34,
-	0x0a, 0x0a, 0x45, 0x78, 0x65, 0x63, 0x52, 0x65, 0x73, 0x69, 0x7a, 0x65, 0x12, 0x12, 0x0a, 0x04,
-	0x63, 0x6f, 0x6c, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04, 0x63, 0x6f, 0x6c, 0x73,
-	0x12, 0x12, 0x0a, 0x04, 0x72, 0x6f, 0x77, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04,
-	0x72, 0x6f, 0x77, 0x73, 0x22, 0x88, 0x02, 0x0a, 0x0b, 0x45, 0x78, 0x65, 0x63, 0x4d, 0x65, 0x73,
-	0x73, 0x61, 0x67, 0x65, 0x12, 0x25, 0x0a, 0x04, 0x69, 0x6e, 0x69, 0x74, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x45, 0x78, 0x65, 0x63, 0x49,
-	0x6e, 0x69, 0x74, 0x48, 0x00, 0x52, 0x04, 0x69, 0x6e, 0x69, 0x74, 0x12, 0x16, 0x0a, 0x05, 0x73,
-	0x74, 0x64, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52, 0x05, 0x73, 0x74,
-	0x64, 0x69, 0x6e, 0x12, 0x18, 0x0a, 0x06, 0x73, 0x74, 0x64, 0x6f, 0x75, 0x74, 0x18, 0x03, 0x20,
+	0x05, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x8a, 0x01, 0x0a, 0x0b, 0x45, 0x78, 0x65, 0x63, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2b, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x45,
+	0x78, 0x65, 0x63, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x00, 0x52, 0x06, 0x63, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x12, 0x16, 0x0a, 0x05, 0x73, 0x74, 0x64, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0c, 0x48, 0x00, 0x52, 0x05, 0x73, 0x74, 0x64, 0x69, 0x6e, 0x12, 0x2d, 0x0a, 0x06, 0x72,
+	0x65, 0x73, 0x69, 0x7a, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2e, 0x54, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61, 0x6c, 0x53, 0x69, 0x7a, 0x65,
+	0x48, 0x00, 0x52, 0x06, 0x72, 0x65, 0x73, 0x69, 0x7a, 0x65, 0x42, 0x07, 0x0a, 0x05, 0x69, 0x6e,
+	0x70, 0x75, 0x74, 0x22, 0x8f, 0x01, 0x0a, 0x0a, 0x45, 0x78, 0x65, 0x63, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65,
+	0x12, 0x19, 0x0a, 0x08, 0x70, 0x6f, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x07, 0x70, 0x6f, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x63,
+	0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09,
+	0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d,
+	0x6d, 0x61, 0x6e, 0x64, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d,
+	0x61, 0x6e, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x74, 0x74, 0x79, 0x18, 0x05, 0x20, 0x01, 0x28, 0x08,
+	0x52, 0x03, 0x74, 0x74, 0x79, 0x22, 0x3c, 0x0a, 0x0c, 0x54, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61,
+	0x6c, 0x53, 0x69, 0x7a, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x77, 0x69, 0x64, 0x74, 0x68, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x77, 0x69, 0x64, 0x74, 0x68, 0x12, 0x16, 0x0a, 0x06, 0x68,
+	0x65, 0x69, 0x67, 0x68, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x06, 0x68, 0x65, 0x69,
+	0x67, 0x68, 0x74, 0x22, 0x66, 0x0a, 0x0c, 0x45, 0x78, 0x65, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x06, 0x73, 0x74, 0x64, 0x6f, 0x75, 0x74, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x0c, 0x48, 0x00, 0x52, 0x06, 0x73, 0x74, 0x64, 0x6f, 0x75, 0x74, 0x12, 0x18, 0x0a,
-	0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52,
-	0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x12, 0x2b, 0x0a, 0x06, 0x72, 0x65, 0x73, 0x69, 0x7a,
-	0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x45, 0x78, 0x65, 0x63, 0x52, 0x65, 0x73, 0x69, 0x7a, 0x65, 0x48, 0x00, 0x52, 0x06, 0x72, 0x65,
-	0x73, 0x69, 0x7a, 0x65, 0x12, 0x16, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x06, 0x20,
-	0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x16, 0x0a, 0x05,
-	0x63, 0x6c, 0x6f, 0x73, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x05, 0x63,
-	0x6c, 0x6f, 0x73, 0x65, 0x12, 0x1e, 0x0a, 0x09, 0x68, 0x65, 0x61, 0x72, 0x74, 0x62, 0x65, 0x61,
-	0x74, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x09, 0x68, 0x65, 0x61, 0x72, 0x74,
-	0x62, 0x65, 0x61, 0x74, 0x42, 0x09, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x32,
-	0x44, 0x0a, 0x0e, 0x50, 0x6f, 0x64, 0x45, 0x78, 0x65, 0x63, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x12, 0x32, 0x0a, 0x04, 0x45, 0x78, 0x65, 0x63, 0x12, 0x12, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x45, 0x78, 0x65, 0x63, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x12, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x45, 0x78, 0x65, 0x63, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67,
-	0x65, 0x28, 0x01, 0x30, 0x01, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x3b, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52,
+	0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x12, 0x18, 0x0a, 0x06, 0x63, 0x6c, 0x6f, 0x73, 0x65,
+	0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x06, 0x63, 0x6c, 0x6f, 0x73, 0x65,
+	0x64, 0x42, 0x08, 0x0a, 0x06, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x32, 0x47, 0x0a, 0x0e, 0x50,
+	0x6f, 0x64, 0x45, 0x78, 0x65, 0x63, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x35, 0x0a,
+	0x04, 0x45, 0x78, 0x65, 0x63, 0x12, 0x12, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x45, 0x78,
+	0x65, 0x63, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x45, 0x78, 0x65, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
+	0x28, 0x01, 0x30, 0x01, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x3b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 })
 
 var (
@@ -394,17 +404,18 @@ func file_podexec_proto_rawDescGZIP() []byte {
 	return file_podexec_proto_rawDescData
 }
 
-var file_podexec_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_podexec_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_podexec_proto_goTypes = []any{
-	(*ExecInit)(nil),    // 0: proto.ExecInit
-	(*ExecResize)(nil),  // 1: proto.ExecResize
-	(*ExecMessage)(nil), // 2: proto.ExecMessage
+	(*ExecRequest)(nil),  // 0: proto.ExecRequest
+	(*ExecConfig)(nil),   // 1: proto.ExecConfig
+	(*TerminalSize)(nil), // 2: proto.TerminalSize
+	(*ExecResponse)(nil), // 3: proto.ExecResponse
 }
 var file_podexec_proto_depIdxs = []int32{
-	0, // 0: proto.ExecMessage.init:type_name -> proto.ExecInit
-	1, // 1: proto.ExecMessage.resize:type_name -> proto.ExecResize
-	2, // 2: proto.PodExecService.Exec:input_type -> proto.ExecMessage
-	2, // 3: proto.PodExecService.Exec:output_type -> proto.ExecMessage
+	1, // 0: proto.ExecRequest.config:type_name -> proto.ExecConfig
+	2, // 1: proto.ExecRequest.resize:type_name -> proto.TerminalSize
+	0, // 2: proto.PodExecService.Exec:input_type -> proto.ExecRequest
+	3, // 3: proto.PodExecService.Exec:output_type -> proto.ExecResponse
 	3, // [3:4] is the sub-list for method output_type
 	2, // [2:3] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -417,15 +428,15 @@ func file_podexec_proto_init() {
 	if File_podexec_proto != nil {
 		return
 	}
-	file_podexec_proto_msgTypes[2].OneofWrappers = []any{
-		(*ExecMessage_Init)(nil),
-		(*ExecMessage_Stdin)(nil),
-		(*ExecMessage_Stdout)(nil),
-		(*ExecMessage_Stderr)(nil),
-		(*ExecMessage_Resize)(nil),
-		(*ExecMessage_Error)(nil),
-		(*ExecMessage_Close)(nil),
-		(*ExecMessage_Heartbeat)(nil),
+	file_podexec_proto_msgTypes[0].OneofWrappers = []any{
+		(*ExecRequest_Config)(nil),
+		(*ExecRequest_Stdin)(nil),
+		(*ExecRequest_Resize)(nil),
+	}
+	file_podexec_proto_msgTypes[3].OneofWrappers = []any{
+		(*ExecResponse_Stdout)(nil),
+		(*ExecResponse_Stderr)(nil),
+		(*ExecResponse_Closed)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -433,7 +444,7 @@ func file_podexec_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_podexec_proto_rawDesc), len(file_podexec_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
