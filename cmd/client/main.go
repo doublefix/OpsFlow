@@ -15,14 +15,14 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	clientConn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Printf("Failed to connect: %v\n", err)
 		os.Exit(1)
 	}
-	defer conn.Close()
+	defer clientConn.Close()
 
-	client := pb.NewPodExecServiceClient(conn)
+	client := pb.NewPodExecServiceClient(clientConn)
 	stream, err := client.Exec(context.Background())
 	if err != nil {
 		fmt.Printf("Failed to create stream: %v\n", err)
