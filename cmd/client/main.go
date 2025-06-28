@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	clientConn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	clientConn, err := grpc.NewClient("ubuntu:30969", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Printf("Failed to connect: %v\n", err)
 		os.Exit(1)
