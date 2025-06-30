@@ -88,7 +88,7 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
-	resizeChan := make(chan remotecommand.TerminalSize)
+	resizeChan := make(chan remotecommand.TerminalSize, 12)
 
 	// Stream handling
 	ctx, cancel := context.WithCancel(stream.Context())
@@ -99,19 +99,27 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		for {
 			req, err := stream.Recv()
 			if err == io.EOF {
+				fmt.Println("client closed stream")
 				return
 			}
 			if err != nil {
+				fmt.Printf("recv error: %v\n", err)
 				cancel()
 				return
 			}
 
 			if stdinData := req.GetStdin(); stdinData != nil {
-				stdinWriter.Write(stdinData)
+				_, _ = stdinWriter.Write(stdinData)
 			} else if resize := req.GetResize(); resize != nil {
-				resizeChan <- remotecommand.TerminalSize{
+				fmt.Printf("Received resize: %d x %d\n", resize.Width, resize.Height)
+
+				select {
+				case resizeChan <- remotecommand.TerminalSize{
 					Width:  uint16(resize.Width),
 					Height: uint16(resize.Height),
+				}:
+				default:
+					fmt.Println("resize channel full, dropping resize event")
 				}
 			}
 		}
