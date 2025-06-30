@@ -27,12 +27,12 @@ func NewPodExecServer() (*PodExecServer, error) {
 		&clientcmd.ConfigOverrides{},
 	).ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load kubeconfig: %v", err)
+		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
+		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
 	return &PodExecServer{
@@ -42,10 +42,10 @@ func NewPodExecServer() (*PodExecServer, error) {
 }
 
 func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
-	// First message must be the config
+	// Get initial config
 	req, err := stream.Recv()
 	if err != nil {
-		return fmt.Errorf("failed to receive initial config: %v", err)
+		return fmt.Errorf("failed to receive initial config: %w", err)
 	}
 
 	config := req.GetConfig()
@@ -63,7 +63,6 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		TTY:       config.Tty,
 	}
 
-	// Create the request
 	k8sReq := s.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(config.PodName).
@@ -71,61 +70,64 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		SubResource("exec").
 		VersionedParams(option, scheme.ParameterCodec)
 
-	// Create executors
 	wsExec, _ := remotecommand.NewWebSocketExecutor(s.config, "POST", k8sReq.URL().String())
 	spdyExec, _ := remotecommand.NewSPDYExecutor(s.config, "POST", k8sReq.URL())
 
-	exec, err := remotecommand.NewFallbackExecutor(
-		wsExec,
-		spdyExec,
-		func(err error) bool { return err != nil },
-	)
+	exec, err := remotecommand.NewFallbackExecutor(wsExec, spdyExec, func(err error) bool {
+		return err != nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create executor: %v", err)
+		return fmt.Errorf("failed to create executor: %w", err)
 	}
 
-	// Create pipes for communication
+	// Setup pipe and context
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
-	resizeChan := make(chan remotecommand.TerminalSize, 12)
+	resizeChan := make(chan remotecommand.TerminalSize, 1)
 
-	// Stream handling
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	// Handle incoming messages from gRPC client
+	// Handle input from client
 	go func() {
+		defer cancel() // cancel on exit
 		for {
 			req, err := stream.Recv()
 			if err == io.EOF {
-				fmt.Println("client closed stream")
 				return
 			}
 			if err != nil {
-				fmt.Printf("recv error: %v\n", err)
-				cancel()
+				fmt.Printf("stream.Recv error: %v\n", err)
 				return
 			}
 
-			if stdinData := req.GetStdin(); stdinData != nil {
-				_, _ = stdinWriter.Write(stdinData)
-			} else if resize := req.GetResize(); resize != nil {
-				fmt.Printf("Received resize: %d x %d\n", resize.Width, resize.Height)
+			switch {
+			case req.GetStdin() != nil:
+				_, _ = stdinWriter.Write(req.GetStdin())
 
-				select {
-				case resizeChan <- remotecommand.TerminalSize{
-					Width:  uint16(resize.Width),
-					Height: uint16(resize.Height),
-				}:
-				default:
-					fmt.Println("resize channel full, dropping resize event")
+			case req.GetResize() != nil:
+				if resize := req.GetResize(); resize != nil {
+					size := remotecommand.TerminalSize{
+						Width:  uint16(resize.Width),
+						Height: uint16(resize.Height),
+					}
+					select {
+					case resizeChan <- size:
+					default:
+						// 丢弃旧 resize，推入新 resize
+						select {
+						case <-resizeChan:
+						default:
+						}
+						resizeChan <- size
+					}
 				}
 			}
 		}
 	}()
 
-	// Handle outgoing messages to gRPC client
+	// Handle stdout
 	go func() {
 		buf := make([]byte, 1024)
 		for {
@@ -133,12 +135,17 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 			if err != nil {
 				return
 			}
-			stream.Send(&pb.ExecResponse{
+			if sendErr := stream.Send(&pb.ExecResponse{
 				Output: &pb.ExecResponse_Stdout{Stdout: buf[:n]},
-			})
+			}); sendErr != nil {
+				fmt.Printf("stream.Send stdout error: %v\n", sendErr)
+				cancel()
+				return
+			}
 		}
 	}()
 
+	// Handle stderr
 	go func() {
 		buf := make([]byte, 1024)
 		for {
@@ -146,13 +153,16 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 			if err != nil {
 				return
 			}
-			stream.Send(&pb.ExecResponse{
+			if sendErr := stream.Send(&pb.ExecResponse{
 				Output: &pb.ExecResponse_Stderr{Stderr: buf[:n]},
-			})
+			}); sendErr != nil {
+				fmt.Printf("stream.Send stderr error: %v\n", sendErr)
+				cancel()
+				return
+			}
 		}
 	}()
 
-	// Create the stream handler
 	handler := &streamHandler{
 		stdin:      stdinReader,
 		stdout:     stdoutWriter,
@@ -160,23 +170,26 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		resizeChan: resizeChan,
 	}
 
-	// Start the exec session
-	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+	// Start streaming exec session
+	if err := exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:             handler,
 		Stdout:            handler,
 		Stderr:            handler,
 		TerminalSizeQueue: handler,
 		Tty:               option.TTY,
-	})
+	}); err != nil {
+		return fmt.Errorf("stream exec failed: %w", err)
+	}
 
-	// Send closed message
-	stream.Send(&pb.ExecResponse{
+	// Notify client that session is closed
+	_ = stream.Send(&pb.ExecResponse{
 		Output: &pb.ExecResponse_Closed{Closed: true},
 	})
 
-	return err
+	return nil
 }
 
+// Implements io.Reader, io.Writer, remotecommand.TerminalSizeQueue
 type streamHandler struct {
 	stdin      io.Reader
 	stdout     io.Writer
