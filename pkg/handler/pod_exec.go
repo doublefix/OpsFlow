@@ -53,7 +53,7 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		return fmt.Errorf("first message must contain config")
 	}
 
-	// Create the exec options
+	// Create exec options
 	option := &v1.PodExecOptions{
 		Container: config.Container,
 		Command:   config.Command,
@@ -80,18 +80,23 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		return fmt.Errorf("failed to create executor: %w", err)
 	}
 
-	// Setup pipe and context
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
-	resizeChan := make(chan remotecommand.TerminalSize, 1)
+
+	// ✅ Resize queue 实现
+	resizeChan := make(chan remotecommand.TerminalSize, 5)
+	resizeQ := &resizeQueue{ch: resizeChan}
 
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
+	defer stdinWriter.Close()
+	defer stdoutReader.Close()
+	defer stderrReader.Close()
 
 	// Handle input from client
 	go func() {
-		defer cancel() // cancel on exit
+		defer cancel()
 		for {
 			req, err := stream.Recv()
 			if err == io.EOF {
@@ -113,12 +118,11 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 						Width:  uint16(resize.Width),
 						Height: uint16(resize.Height),
 					}
-					// 更简洁的处理方式
 					select {
-					case resizeChan <- size: // 如果能立即发送
-					default: // 如果通道满
-						<-resizeChan       // 丢弃一个旧值
-						resizeChan <- size // 放入新值
+					case resizeChan <- size:
+					default:
+						<-resizeChan
+						resizeChan <- size
 					}
 				}
 			}
@@ -161,25 +165,25 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		}
 	}()
 
+	// 创建 handler 处理 stdin/stdout/stderr
 	handler := &streamHandler{
-		stdin:      stdinReader,
-		stdout:     stdoutWriter,
-		stderr:     stderrWriter,
-		resizeChan: resizeChan,
+		stdin:  stdinReader,
+		stdout: stdoutWriter,
+		stderr: stderrWriter,
 	}
 
-	// Start streaming exec session
+	// 开始流式执行命令
 	if err := exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:             handler,
 		Stdout:            handler,
-		Stderr:            handler,
-		TerminalSizeQueue: handler,
+		Stderr:            handler.Stderr(),
+		TerminalSizeQueue: resizeQ, // ✅ 使用 resizeQueue 实现
 		Tty:               option.TTY,
 	}); err != nil {
 		return fmt.Errorf("stream exec failed: %w", err)
 	}
 
-	// Notify client that session is closed
+	// 告知客户端关闭
 	_ = stream.Send(&pb.ExecResponse{
 		Output: &pb.ExecResponse_Closed{Closed: true},
 	})
@@ -189,10 +193,9 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 
 // Implements io.Reader, io.Writer, remotecommand.TerminalSizeQueue
 type streamHandler struct {
-	stdin      io.Reader
-	stdout     io.Writer
-	stderr     io.Writer
-	resizeChan chan remotecommand.TerminalSize
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
 }
 
 func (h *streamHandler) Read(p []byte) (int, error) {
@@ -207,9 +210,14 @@ func (h *streamHandler) Stderr() io.Writer {
 	return h.stderr
 }
 
-func (h *streamHandler) Next() *remotecommand.TerminalSize {
+// ✅ resizeQueue 实现 TerminalSizeQueue
+type resizeQueue struct {
+	ch chan remotecommand.TerminalSize
+}
+
+func (r *resizeQueue) Next() *remotecommand.TerminalSize {
 	select {
-	case size := <-h.resizeChan:
+	case size := <-r.ch:
 		return &size
 	default:
 		return nil
