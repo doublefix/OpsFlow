@@ -108,19 +108,17 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 
 			case req.GetResize() != nil:
 				if resize := req.GetResize(); resize != nil {
+					fmt.Printf("Received resize: %dx%d\n", resize.Width, resize.Height)
 					size := remotecommand.TerminalSize{
 						Width:  uint16(resize.Width),
 						Height: uint16(resize.Height),
 					}
+					// 更简洁的处理方式
 					select {
-					case resizeChan <- size:
-					default:
-						// 丢弃旧 resize，推入新 resize
-						select {
-						case <-resizeChan:
-						default:
-						}
-						resizeChan <- size
+					case resizeChan <- size: // 如果能立即发送
+					default: // 如果通道满
+						<-resizeChan       // 丢弃一个旧值
+						resizeChan <- size // 放入新值
 					}
 				}
 			}
