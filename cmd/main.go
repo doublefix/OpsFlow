@@ -64,17 +64,13 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 }
 
 func main() {
-	// 创建上下文用于优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// 加载配置
 	cfg, err := LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 初始化 Kubernetes 客户端
 	client, err := core.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
@@ -101,10 +97,7 @@ func main() {
 	grpcSrv := grpc.NewServer()
 	pb.RegisterPodExecServiceServer(grpcSrv, grpcServer)
 
-	// 使用 errgroup 管理多个服务
 	g, ctx := errgroup.WithContext(ctx)
-
-	// 启动 HTTP 服务器
 	g.Go(func() error {
 		log.Printf("HTTP server listening on %s", cfg.ListenAddr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -112,8 +105,6 @@ func main() {
 		}
 		return nil
 	})
-
-	// 启动 gRPC 服务器
 	g.Go(func() error {
 		log.Printf("gRPC server listening on %s", ":50051")
 		if err := grpcSrv.Serve(grpcListener); err != nil {
@@ -122,36 +113,29 @@ func main() {
 		return nil
 	})
 
-	// 设置优雅关闭处理
 	g.Go(func() error {
-		// 监听终止信号
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 		select {
-		case <-ctx.Done(): // 其他服务出错导致关闭
+		case <-ctx.Done():
 			return ctx.Err()
-		case sig := <-sigChan: // 收到终止信号
+		case sig := <-sigChan:
 			log.Printf("Received signal: %v", sig)
 			cancel()
 			return nil
 		}
 	})
 
-	// 关闭处理协程
 	g.Go(func() error {
-		<-ctx.Done() // 等待关闭信号
-
+		<-ctx.Done()
 		log.Println("Shutting down servers...")
-
-		// 优雅关闭 HTTP 服务器
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			log.Printf("HTTP server shutdown error: %v", err)
 		}
 
-		// 优雅关闭 gRPC 服务器
 		stopped := make(chan struct{})
 		go func() {
 			grpcSrv.GracefulStop()
@@ -160,14 +144,13 @@ func main() {
 
 		select {
 		case <-shutdownCtx.Done():
-			grpcSrv.Stop() // 强制停止
+			grpcSrv.Stop()
 		case <-stopped:
 		}
 
 		return nil
 	})
 
-	// 等待所有goroutine完成
 	if err := g.Wait(); err != nil {
 		log.Printf("Server error: %v", err)
 	}
