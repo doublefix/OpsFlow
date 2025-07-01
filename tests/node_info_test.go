@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -246,12 +247,51 @@ func TestSSH(t *testing.T) {
 	}
 }
 
-func TestSSHClient(t *testing.T) {
-	// 设置连接参数
-	// serverAddr := "localhost:50051"
-	// podName := "calico-node-rcjsm" // 替换为你的 Pod 名称
-	// namespace := "kube-system"     // 替换为你的命名空间
-	// containerName := "calico-node" // 替换为你的容器名称
+func TestLog(t *testing.T) {
+	// 加载 kubeconfig 配置
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		t.Fatalf("无法加载 kubeconfig: %v", err)
+	}
 
-	log.Println("客户端退出")
+	// 创建 Kubernetes 客户端
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("无法创建 Kubernetes 客户端: %v", err)
+	}
+
+	podName := "calico-node-rcjsm"
+	namespace := "kube-system"
+	containerName := "calico-node"
+
+	// 构造日志请求
+	logOptions := &v1.PodLogOptions{
+		Container: containerName,
+		Follow:    false,       // 如果为 true 会持续输出日志（流式）
+		TailLines: int64Ptr(1), // 获取最近 100 行
+	}
+
+	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
+
+	fmt.Printf("请求 URL: %s\n", req.URL().String())
+
+	// 发起请求
+	readCloser, err := req.Stream(context.Background())
+	if err != nil {
+		t.Fatalf("无法获取日志流: %v", err)
+	}
+	defer readCloser.Close()
+
+	// 将日志输出到 stdout
+	_, err = io.Copy(os.Stdout, readCloser)
+	if err != nil {
+		t.Fatalf("复制日志输出失败: %v", err)
+	}
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
 }
