@@ -42,7 +42,6 @@ func NewPodExecServer() (*PodExecServer, error) {
 }
 
 func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
-	// Get initial config
 	req, err := stream.Recv()
 	if err != nil {
 		return fmt.Errorf("failed to receive initial config: %w", err)
@@ -53,7 +52,6 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 		return fmt.Errorf("first message must contain config")
 	}
 
-	// Create exec options
 	option := &v1.PodExecOptions{
 		Container: config.Container,
 		Command:   config.Command,
