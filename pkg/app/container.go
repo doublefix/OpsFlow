@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
 )
 
@@ -12,7 +11,7 @@ type Container struct {
 	ServiceHandler    *handler.ServiceHandler
 }
 
-func NewContainer(c core.Client) *Container {
+func NewContainer(c Client) *Container {
 	client := c.Core()
 	nodeClient := client.CoreV1().Nodes()
 
