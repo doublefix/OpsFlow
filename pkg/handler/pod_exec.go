@@ -6,6 +6,8 @@ import (
 	"io"
 
 	pb "github.com/modcoco/OpsFlow/pkg/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -101,6 +103,9 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 				return
 			}
 			if err != nil {
+				if status.Code(err) == codes.Canceled {
+					return
+				}
 				fmt.Printf("stream.Recv error: %v\n", err)
 				return
 			}
