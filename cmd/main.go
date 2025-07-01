@@ -11,11 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/modcoco/OpsFlow/pkg/app"
 	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
 	pb "github.com/modcoco/OpsFlow/pkg/proto"
+	"github.com/modcoco/OpsFlow/pkg/router"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -39,28 +40,6 @@ func LoadConfig() (*Config, error) {
 	}, nil
 }
 
-func CreateGinRouter(client core.Client) *gin.Engine {
-	engine := gin.Default()
-	engine.Use(core.AppContextMiddleware(client))
-
-	api := engine.Group("/api/v1")
-	{
-		// api.GET("/pod", handler.GetPodInfo)
-
-		api.GET("/node", handler.GetNodesHandle)
-		api.POST("/pod", handler.CreatePodHandle)
-		api.GET("/pod", handler.GetPodsHandle)
-		api.POST("/deployments", handler.CreateDeploymentHandle)
-		api.DELETE("/deployments/:namespace/:name", handler.DeleteDeploymentHandle)
-		api.DELETE("/pod/:namespace/:name", handler.DeletePodHandle)
-		api.POST("/services", handler.CreateServiceHandle)
-		api.DELETE("/services/:namespace/:name", handler.DeleteServiceHandle)
-
-	}
-
-	return engine
-}
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -74,11 +53,11 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	// 创建 HTTP 服务器
-	r := CreateGinRouter(client)
+	container := app.NewContainer(client)
+	engine := router.RegisterRoutes(container)
 	httpServer := &http.Server{
 		Addr:    cfg.ListenAddr,
-		Handler: r,
+		Handler: engine,
 	}
 
 	// 创建 gRPC 服务器

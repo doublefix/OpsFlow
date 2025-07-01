@@ -5,22 +5,32 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modcoco/OpsFlow/pkg/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// NodeHandler handles node-related HTTP requests
+type NodeHandler struct {
+	client corev1.NodeInterface
+}
+
+// NewNodeHandler creates a new NodeHandler with dependency injection
+func NewNodeHandler(client corev1.NodeInterface) *NodeHandler {
+	return &NodeHandler{
+		client: client,
+	}
+}
+
+// GetNodesHandle handles GET requests for nodes
 // curl http://localhost:8090/api/v1/node\?limit\=1|jq .
-func GetNodesHandle(c *gin.Context) {
+func (h *NodeHandler) GetNodesHandle(c *gin.Context) {
 	nodeName := c.Query("name")
 	labelSelector := c.Query("labelSelector")
 	limitStr := c.Query("limit")
 	continueToken := c.Query("continue")
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().CoreV1().Nodes()
-
 	if nodeName != "" {
-		node, err := client.Get(appCtx.Ctx(), nodeName, metav1.GetOptions{})
+		node, err := h.client.Get(c.Request.Context(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			handleK8sError(c, err)
 			return
@@ -46,7 +56,7 @@ func GetNodesHandle(c *gin.Context) {
 		listOptions.Continue = continueToken
 	}
 
-	nodeList, err := client.List(appCtx.Ctx(), listOptions)
+	nodeList, err := h.client.List(c.Request.Context(), listOptions)
 	if err != nil {
 		handleK8sError(c, err)
 		return
