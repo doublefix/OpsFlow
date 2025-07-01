@@ -111,7 +111,6 @@ func (s *PodExecServer) Exec(stream pb.PodExecService_ExecServer) error {
 
 			case req.GetResize() != nil:
 				if resize := req.GetResize(); resize != nil {
-					fmt.Printf("Received resize: %dx%d\n", resize.Width, resize.Height)
 					size := remotecommand.TerminalSize{
 						Width:  uint16(resize.Width),
 						Height: uint16(resize.Height),
