@@ -40,10 +40,10 @@ func LoadConfig() (*Config, error) {
 }
 
 func CreateGinRouter(client core.Client) *gin.Engine {
-	r := gin.Default()
-	r.Use(core.AppContextMiddleware(client))
+	engine := gin.Default()
+	engine.Use(core.AppContextMiddleware(client))
 
-	api := r.Group("/api/v1")
+	api := engine.Group("/api/v1")
 	{
 		// api.GET("/pod", handler.GetPodInfo)
 		api.POST("/raycluster", handler.GetCreateRayClusterInfo)
@@ -60,7 +60,7 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 		api.DELETE("/rayjob/:namespace/:name", handler.RemoveRayJobHandle)
 	}
 
-	return r
+	return engine
 }
 
 func main() {
