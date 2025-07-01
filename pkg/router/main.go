@@ -6,25 +6,35 @@ import (
 )
 
 func RegisterRoutes(c *app.Container) *gin.Engine {
-
 	engine := gin.New()
-	engine.Use(gin.Recovery())
-	engine.Use(gin.Logger())
+
+	engine.Use(
+		gin.Recovery(),
+		gin.Logger(),
+	)
 
 	api := engine.Group("/api/v1")
 	{
-		api.GET("/node", c.NodeHandler.GetNodesHandle)
+		api.GET("/nodes", c.NodeHandler.GetNodesHandle)
 
-		api.POST("/pod", c.PodHandler.CreatePod)
-		api.GET("/pod", c.PodHandler.GetPods)
-		api.DELETE("/pod/:namespace/:name", c.PodHandler.DeletePod)
+		pod := api.Group("/pods")
+		{
+			pod.GET("", c.PodHandler.GetPods)
+			pod.POST("", c.PodHandler.CreatePod)
+			pod.DELETE("/:namespace/:name", c.PodHandler.DeletePod)
+		}
 
-		api.POST("/deployments", c.DeploymentHandler.CreateDeployment)
-		api.DELETE("/deployments/:namespace/:name", c.DeploymentHandler.DeleteDeployment)
+		deployment := api.Group("/deployments")
+		{
+			deployment.POST("", c.DeploymentHandler.CreateDeployment)
+			deployment.DELETE("/:namespace/:name", c.DeploymentHandler.DeleteDeployment)
+		}
 
-		api.POST("/services", c.ServiceHandler.CreateService)
-		api.DELETE("/services/:namespace/:name", c.ServiceHandler.DeleteService)
-
+		service := api.Group("/services")
+		{
+			service.POST("", c.ServiceHandler.CreateService)
+			service.DELETE("/:namespace/:name", c.ServiceHandler.DeleteService)
+		}
 	}
 
 	return engine
