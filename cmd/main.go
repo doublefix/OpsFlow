@@ -48,9 +48,9 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 		// api.GET("/pod", handler.GetPodInfo)
 
 		api.GET("/node", handler.GetNodesHandle)
-		api.POST("/deployments", handler.CreateDeploymentHandle)
 		api.POST("/pod", handler.CreatePodHandle)
 		api.GET("/pod", handler.GetPodsHandle)
+		api.POST("/deployments", handler.CreateDeploymentHandle)
 		api.DELETE("/deployments/:namespace/:name", handler.DeleteDeploymentHandle)
 		api.DELETE("/pod/:namespace/:name", handler.DeletePodHandle)
 		api.POST("/services", handler.CreateServiceHandle)
