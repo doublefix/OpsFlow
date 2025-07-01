@@ -15,7 +15,7 @@ func RegisterRoutes(c *app.Container) *gin.Engine {
 
 	api := engine.Group("/api/v1")
 	{
-		api.GET("/nodes", c.NodeHandler.GetNodesHandle)
+		api.GET("/node", c.NodeHandler.GetNodesHandle)
 
 		pod := api.Group("/pods")
 		{
@@ -24,13 +24,13 @@ func RegisterRoutes(c *app.Container) *gin.Engine {
 			pod.DELETE("/:namespace/:name", c.PodHandler.DeletePod)
 		}
 
-		deployment := api.Group("/deployments")
+		deployment := api.Group("/deployment")
 		{
 			deployment.POST("", c.DeploymentHandler.CreateDeployment)
 			deployment.DELETE("/:namespace/:name", c.DeploymentHandler.DeleteDeployment)
 		}
 
-		service := api.Group("/services")
+		service := api.Group("/service")
 		{
 			service.POST("", c.ServiceHandler.CreateService)
 			service.DELETE("/:namespace/:name", c.ServiceHandler.DeleteService)
