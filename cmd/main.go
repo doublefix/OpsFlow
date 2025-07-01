@@ -46,8 +46,7 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 	api := engine.Group("/api/v1")
 	{
 		// api.GET("/pod", handler.GetPodInfo)
-		api.POST("/raycluster", handler.GetCreateRayClusterInfo)
-		api.POST("/rayjob", handler.CreateRayJobHandle)
+
 		api.GET("/node", handler.GetNodesHandle)
 		api.POST("/deployments", handler.CreateDeploymentHandle)
 		api.POST("/pod", handler.CreatePodHandle)
@@ -56,8 +55,7 @@ func CreateGinRouter(client core.Client) *gin.Engine {
 		api.DELETE("/pod/:namespace/:name", handler.DeletePodHandle)
 		api.POST("/services", handler.CreateServiceHandle)
 		api.DELETE("/services/:namespace/:name", handler.DeleteServiceHandle)
-		api.GET("/rayjob/:namespace/:name", handler.RayJobInfoHandle)
-		api.DELETE("/rayjob/:namespace/:name", handler.RemoveRayJobHandle)
+
 	}
 
 	return engine

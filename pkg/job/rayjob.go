@@ -1,17 +1,9 @@
 package job
 
 import (
-	"fmt"
-	"log"
 	"strings"
-	"time"
 
-	officalCtx "context"
-
-	"github.com/modcoco/OpsFlow/pkg/common"
-	"github.com/modcoco/OpsFlow/pkg/context"
 	"github.com/modcoco/OpsFlow/pkg/model"
-	"github.com/modcoco/OpsFlow/pkg/svc"
 	"github.com/modcoco/OpsFlow/pkg/utils"
 	rayv1 "github.com/ray-project/kuberay/ray-operator/apis/ray/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,103 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
-
-func CreateRayJob(config model.ClusterConfig, c context.RayJobContext) (model.RayJobResponse, error) {
-	vllmConfig, err := ProcessVllmOnRaySimpleAutoJobClusterConfigByHeaderMachine(&config)
-	if err != nil {
-		return model.RayJobResponse{}, err
-	}
-	rayVersion := config.RayVersion
-	if rayVersion == "" {
-		rayVersion = "2.41.0"
-	}
-	rayImage := config.RayImage
-	if rayImage == "" {
-		rayImage = "rayproject/ray:" + rayVersion
-	}
-
-	headGroupSpec := CreateHeadGroupSpec(config.Machines, rayImage)
-	workerGroupSpecs := CreateWorkerGroupSpecs(config.Machines, rayImage)
-	uniqueRayJobId := config.Job.Name
-
-	rayCluster := rayv1.RayClusterSpec{
-		RayVersion:       rayVersion,
-		HeadGroupSpec:    headGroupSpec,
-		WorkerGroupSpecs: workerGroupSpecs,
-	}
-	labels := map[string]string{
-		model.ModelUniqueID: uniqueRayJobId,
-	}
-	rayJob := rayv1.RayJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.Job.Name,
-			Namespace: config.Namespace,
-			Labels:    labels,
-			// CreationTimestamp: metav1.Time{Time: time.Now()},
-		},
-		Spec: rayv1.RayJobSpec{
-			Entrypoint:     config.Job.Cmd,
-			RayClusterSpec: &rayCluster,
-		},
-	}
-
-	if vllmConfig != nil {
-		rayJobRuncodeConfigmap := CreateConfigMapFromVllmSimpleRunCodeConfig(*vllmConfig)
-		common.AddLabelToConfigMap(rayJobRuncodeConfigmap, labels)
-		fmt.Println("Create ConfigMap")
-		utils.MarshalToJSON(rayJobRuncodeConfigmap)
-		c.Core().CoreV1().ConfigMaps(config.Namespace).Create(c.Ctx(), rayJobRuncodeConfigmap, metav1.CreateOptions{})
-	}
-	fmt.Println("Create rayjob")
-	utils.MarshalToJSON(rayJob)
-	runningRayJob, err := c.Ray().RayV1().RayJobs(config.Namespace).Create(c.Ctx(), &rayJob, metav1.CreateOptions{})
-	if err != nil {
-		return model.RayJobResponse{}, err
-	}
-	// Create SVC
-	resultChan := make(chan string, 1)
-	watcher := NewRayJobWatcher(RayJobWatcherConfig{
-		Clientset:  c.Ray(),
-		Namespace:  config.Namespace,
-		JobName:    runningRayJob.Name,
-		Timeout:    30 * time.Minute,
-		ResultChan: resultChan,
-	})
-	go watcher.WaitForRayClusterName()
-	go func() {
-		select {
-		case clusterName, ok := <-resultChan:
-			if !ok {
-				log.Println("Result channel closed")
-				return
-			}
-			if clusterName == "timeout waiting for RayClusterName" {
-				log.Println("Wait RayClusterName time out")
-				return
-			}
-
-			service := svc.GenerateRayClusterService(config.Namespace, clusterName)
-			common.AddLabelToService(service, labels)
-			ctx, cancel := officalCtx.WithTimeout(officalCtx.Background(), 10*time.Second)
-			defer cancel()
-			_, err := c.Core().CoreV1().Services(config.Namespace).Create(ctx, service, metav1.CreateOptions{})
-			if err != nil {
-				log.Printf("Create service error: %v", err)
-				return
-			}
-
-			log.Printf("Service %s create success!", service.Name)
-
-		case <-time.After(30 * time.Minute):
-			log.Println("Wait RayClusterName time out")
-		}
-	}()
-
-	return model.RayJobResponse{
-		JobID:     uniqueRayJobId,
-		Namespace: config.Namespace,
-	}, nil
-}
 
 func CreateConfigMapFromVllmSimpleRunCodeConfig(config VllmSimpleRunCodeConfigForRayCluster) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
