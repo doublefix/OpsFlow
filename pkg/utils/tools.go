@@ -7,11 +7,9 @@ import (
 	"math/rand"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/google/uuid"
-	"github.com/modcoco/OpsFlow/pkg/model"
 )
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -74,18 +72,6 @@ func RandStrLower(n int) string {
 		remain--
 	}
 	return string(b)
-}
-
-// ConvertPorts 将端口配置转换为 ContainerPort 列表
-func ConvertPorts(ports []model.PortConfig) []corev1.ContainerPort {
-	var containerPorts []corev1.ContainerPort
-	for _, port := range ports {
-		containerPorts = append(containerPorts, corev1.ContainerPort{
-			Name:          port.Name,
-			ContainerPort: port.ContainerPort,
-		})
-	}
-	return containerPorts
 }
 
 func StrPtr(s string) *string {
