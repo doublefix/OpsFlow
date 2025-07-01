@@ -210,16 +210,14 @@ func (h *streamHandler) Stderr() io.Writer {
 	return h.stderr
 }
 
-// ✅ resizeQueue 实现 TerminalSizeQueue
 type resizeQueue struct {
 	ch chan remotecommand.TerminalSize
 }
 
 func (r *resizeQueue) Next() *remotecommand.TerminalSize {
-	select {
-	case size := <-r.ch:
-		return &size
-	default:
+	size, ok := <-r.ch
+	if !ok {
 		return nil
 	}
+	return &size
 }
