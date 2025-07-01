@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package proto;
+option go_package = ".;proto";
+
+service PodLogService {
+    // Establishes a server-side streaming connection to stream logs
+    rpc GetLogs(LogRequest) returns (stream LogResponse) {};
+}
+
+message LogRequest {
+    string namespace = 1;
+    string pod_name = 2;
+    string container = 3;
+
+    // 是否跟随日志
+    bool follow = 4;
+
+    // 是否包含前缀时间戳
+    bool timestamps = 5;
+
+    // 起始时间，RFC3339 格式字符串（可选）
+    string since_time = 6;
+
+    // 最近 N 行（可选）
+    int64 tail_lines = 7;
+
+    // 是否包含前缀时间戳（可选）
+    bool previous = 8;
+}
+
+message LogResponse {
+    oneof log {
+        bytes content = 1;     // 日志内容
+        string error = 2;      // 错误消息（可选）
+        bool eof = 3;          // 是否结束（可选）
+    }
+}

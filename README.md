@@ -122,4 +122,12 @@ protoc \
   --go_out=./pkg/proto \
   --go-grpc_opt=paths=source_relative \
   pkg/proto/podexec.proto
+
+protoc \
+  --proto_path=/usr/include \
+  --proto_path=./pkg/proto \
+  --go-grpc_out=./pkg/proto \
+  --go_out=./pkg/proto \
+  --go-grpc_opt=paths=source_relative \
+  pkg/proto/podlog.proto
 ```
