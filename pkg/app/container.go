@@ -6,13 +6,20 @@ import (
 )
 
 type Container struct {
-	NodeHandler *handler.NodeHandler
+	NodeHandler       *handler.NodeHandler
+	PodHandler        *handler.PodHandler
+	DeploymentHandler *handler.DeploymentHandler
+	ServiceHandler    *handler.ServiceHandler
 }
 
 func NewContainer(c core.Client) *Container {
-	nodeClient := c.Core().CoreV1().Nodes()
+	client := c.Core()
+	nodeClient := client.CoreV1().Nodes()
 
 	return &Container{
-		NodeHandler: handler.NewNodeHandler(nodeClient),
+		NodeHandler:       handler.NewNodeHandler(nodeClient),
+		PodHandler:        handler.NewPodHandler(client),
+		DeploymentHandler: handler.NewDeploymentHandler(client),
+		ServiceHandler:    handler.NewServiceHandler(client),
 	}
 }

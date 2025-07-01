@@ -5,13 +5,21 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modcoco/OpsFlow/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-func CreateDeploymentHandle(c *gin.Context) {
+type DeploymentHandler struct {
+	client kubernetes.Interface
+}
+
+func NewDeploymentHandler(client kubernetes.Interface) *DeploymentHandler {
+	return &DeploymentHandler{client: client}
+}
+
+func (h *DeploymentHandler) CreateDeployment(c *gin.Context) {
 	var deploy appsv1.Deployment
 	if err := c.ShouldBindJSON(&deploy); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -22,10 +30,9 @@ func CreateDeploymentHandle(c *gin.Context) {
 		return
 	}
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().AppsV1().Deployments(deploy.Namespace)
+	client := h.client.AppsV1().Deployments(deploy.Namespace)
 
-	if _, err := client.Get(appCtx.Ctx(), deploy.Name, metav1.GetOptions{}); err == nil {
+	if _, err := client.Get(c.Request.Context(), deploy.Name, metav1.GetOptions{}); err == nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"error": fmt.Sprintf("deployment %q already exists", deploy.Name),
 		})
@@ -35,7 +42,7 @@ func CreateDeploymentHandle(c *gin.Context) {
 		return
 	}
 
-	created, err := client.Create(appCtx.Ctx(), &deploy, metav1.CreateOptions{})
+	created, err := client.Create(c.Request.Context(), &deploy, metav1.CreateOptions{})
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -48,7 +55,7 @@ func CreateDeploymentHandle(c *gin.Context) {
 	})
 }
 
-func DeleteDeploymentHandle(c *gin.Context) {
+func (h *DeploymentHandler) DeleteDeployment(c *gin.Context) {
 	namespace := c.Param("namespace")
 	name := c.Param("name")
 
@@ -59,10 +66,9 @@ func DeleteDeploymentHandle(c *gin.Context) {
 		return
 	}
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().AppsV1().Deployments(namespace)
+	client := h.client.AppsV1().Deployments(namespace)
 
-	_, err := client.Get(appCtx.Ctx(), name, metav1.GetOptions{})
+	_, err := client.Get(c.Request.Context(), name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -74,7 +80,7 @@ func DeleteDeploymentHandle(c *gin.Context) {
 		return
 	}
 
-	err = client.Delete(appCtx.Ctx(), name, metav1.DeleteOptions{})
+	err = client.Delete(c.Request.Context(), name, metav1.DeleteOptions{})
 	if err != nil {
 		handleK8sError(c, err)
 		return

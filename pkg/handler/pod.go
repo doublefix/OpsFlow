@@ -6,25 +6,31 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modcoco/OpsFlow/pkg/core"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-// curl http://localhost:8090/api/v1/pod\?limit\=1\&namespace\=kube-system
-func GetPodsHandle(c *gin.Context) {
+type PodHandler struct {
+	client kubernetes.Interface
+}
+
+func NewPodHandler(client kubernetes.Interface) *PodHandler {
+	return &PodHandler{client: client}
+}
+
+func (h *PodHandler) GetPods(c *gin.Context) {
 	namespace := c.DefaultQuery("namespace", "default")
 	podName := c.Query("name")
 	labelSelector := c.Query("labelSelector")
 	limitStr := c.Query("limit")
 	continueToken := c.Query("continue")
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().CoreV1().Pods(namespace)
+	client := h.client.CoreV1().Pods(namespace)
 
 	if podName != "" {
-		pod, err := client.Get(appCtx.Ctx(), podName, metav1.GetOptions{})
+		pod, err := client.Get(c.Request.Context(), podName, metav1.GetOptions{})
 		if err != nil {
 			handleK8sError(c, err)
 			return
@@ -50,7 +56,7 @@ func GetPodsHandle(c *gin.Context) {
 		listOptions.Continue = continueToken
 	}
 
-	podList, err := client.List(appCtx.Ctx(), listOptions)
+	podList, err := client.List(c.Request.Context(), listOptions)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -59,7 +65,7 @@ func GetPodsHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, podList)
 }
 
-func CreatePodHandle(c *gin.Context) {
+func (h *PodHandler) CreatePod(c *gin.Context) {
 	var pod corev1.Pod
 	if err := c.ShouldBindJSON(&pod); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -70,10 +76,9 @@ func CreatePodHandle(c *gin.Context) {
 		return
 	}
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().CoreV1().Pods(pod.Namespace)
+	client := h.client.CoreV1().Pods(pod.Namespace)
 
-	if _, err := client.Get(appCtx.Ctx(), pod.Name, metav1.GetOptions{}); err == nil {
+	if _, err := client.Get(c.Request.Context(), pod.Name, metav1.GetOptions{}); err == nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"error": fmt.Sprintf("pod %q already exists", pod.Name),
 		})
@@ -83,7 +88,7 @@ func CreatePodHandle(c *gin.Context) {
 		return
 	}
 
-	created, err := client.Create(appCtx.Ctx(), &pod, metav1.CreateOptions{})
+	created, err := client.Create(c.Request.Context(), &pod, metav1.CreateOptions{})
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -96,7 +101,7 @@ func CreatePodHandle(c *gin.Context) {
 	})
 }
 
-func DeletePodHandle(c *gin.Context) {
+func (h *PodHandler) DeletePod(c *gin.Context) {
 	namespace := c.Param("namespace")
 	name := c.Param("name")
 
@@ -107,10 +112,9 @@ func DeletePodHandle(c *gin.Context) {
 		return
 	}
 
-	appCtx := core.GetAppContext(c)
-	client := appCtx.Client().Core().CoreV1().Pods(namespace)
+	client := h.client.CoreV1().Pods(namespace)
 
-	_, err := client.Get(appCtx.Ctx(), name, metav1.GetOptions{})
+	_, err := client.Get(c.Request.Context(), name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -122,7 +126,7 @@ func DeletePodHandle(c *gin.Context) {
 		return
 	}
 
-	err = client.Delete(appCtx.Ctx(), name, metav1.DeleteOptions{})
+	err = client.Delete(c.Request.Context(), name, metav1.DeleteOptions{})
 	if err != nil {
 		handleK8sError(c, err)
 		return

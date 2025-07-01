@@ -3,7 +3,6 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/modcoco/OpsFlow/pkg/app"
-	"github.com/modcoco/OpsFlow/pkg/handler"
 )
 
 func RegisterRoutes(c *app.Container) *gin.Engine {
@@ -15,13 +14,16 @@ func RegisterRoutes(c *app.Container) *gin.Engine {
 	api := engine.Group("/api/v1")
 	{
 		api.GET("/node", c.NodeHandler.GetNodesHandle)
-		api.POST("/pod", handler.CreatePodHandle)
-		api.GET("/pod", handler.GetPodsHandle)
-		api.POST("/deployments", handler.CreateDeploymentHandle)
-		api.DELETE("/deployments/:namespace/:name", handler.DeleteDeploymentHandle)
-		api.DELETE("/pod/:namespace/:name", handler.DeletePodHandle)
-		api.POST("/services", handler.CreateServiceHandle)
-		api.DELETE("/services/:namespace/:name", handler.DeleteServiceHandle)
+
+		api.POST("/pod", c.PodHandler.CreatePod)
+		api.GET("/pod", c.PodHandler.GetPods)
+		api.DELETE("/pod/:namespace/:name", c.PodHandler.DeletePod)
+
+		api.POST("/deployments", c.DeploymentHandler.CreateDeployment)
+		api.DELETE("/deployments/:namespace/:name", c.DeploymentHandler.DeleteDeployment)
+
+		api.POST("/services", c.ServiceHandler.CreateService)
+		api.DELETE("/services/:namespace/:name", c.ServiceHandler.DeleteService)
 
 	}
 
