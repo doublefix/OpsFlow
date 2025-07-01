@@ -13,7 +13,6 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/modcoco/OpsFlow/pkg/app"
-	"github.com/modcoco/OpsFlow/pkg/core"
 	"github.com/modcoco/OpsFlow/pkg/handler"
 	pb "github.com/modcoco/OpsFlow/pkg/proto"
 	"github.com/modcoco/OpsFlow/pkg/router"
@@ -48,7 +47,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	client, err := core.NewClient()
+	client, err := app.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
