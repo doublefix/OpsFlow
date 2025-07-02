@@ -13,11 +13,9 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/modcoco/OpsFlow/pkg/app"
-	"github.com/modcoco/OpsFlow/pkg/handler"
-	pb "github.com/modcoco/OpsFlow/pkg/proto"
 	"github.com/modcoco/OpsFlow/pkg/router"
+	"github.com/modcoco/OpsFlow/pkg/server"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -61,15 +59,10 @@ func main() {
 	}
 
 	// 创建 gRPC 服务器
-	grpcSrv := grpc.NewServer()
-	podExecHandler, err := handler.NewPodExecServer()
+	grpcSrv, err := server.SetupGRPCServer(client.Core().(*kubernetes.Clientset))
 	if err != nil {
-		log.Fatalf("Failed to create gRPC server: %v", err)
+		log.Fatalf("Failed to setup gRPC server: %v", err)
 	}
-	logHandler := handler.NewPodLogHandler(client.Core().(*kubernetes.Clientset))
-
-	pb.RegisterPodExecServiceServer(grpcSrv, podExecHandler)
-	pb.RegisterPodLogServiceServer(grpcSrv, logHandler)
 
 	grpcListener, err := net.Listen("tcp", ":50051")
 	if err != nil {
