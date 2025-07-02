@@ -61,19 +61,14 @@ func main() {
 	}
 
 	// 创建 gRPC 服务器
-	grpcServer, err := handler.NewPodExecServer()
-	logHandler := handler.NewPodLogHandler(client.Core().(*kubernetes.Clientset))
+	grpcSrv := grpc.NewServer()
+	podExecHandler, err := handler.NewPodExecServer()
 	if err != nil {
 		log.Fatalf("Failed to create gRPC server: %v", err)
 	}
+	logHandler := handler.NewPodLogHandler(client.Core().(*kubernetes.Clientset))
 
-	grpcListener, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("Failed to listen on gRPC port: %v", err)
-	}
-
-	grpcSrv := grpc.NewServer()
-	pb.RegisterPodExecServiceServer(grpcSrv, grpcServer)
+	pb.RegisterPodExecServiceServer(grpcSrv, podExecHandler)
 	pb.RegisterPodLogServiceServer(grpcSrv, logHandler)
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -84,6 +79,10 @@ func main() {
 		}
 		return nil
 	})
+	grpcListener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port: %v", err)
+	}
 	g.Go(func() error {
 		log.Printf("gRPC server listening on %s", ":50051")
 		if err := grpcSrv.Serve(grpcListener); err != nil {
