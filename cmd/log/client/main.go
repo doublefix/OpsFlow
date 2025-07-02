@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// 1. 建立 gRPC 连接
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure()) // 或使用 TLS
+	conn, err := grpc.Dial("ubuntu:30969", grpc.WithInsecure()) // 或使用 TLS
 	if err != nil {
 		log.Fatalf("无法连接 gRPC 服务: %v", err)
 	}
