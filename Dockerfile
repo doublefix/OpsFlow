@@ -10,4 +10,4 @@ RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /app/opsflow /usr/local/bin/opsflow
 ENTRYPOINT ["opsflow"]
 
-# docker buildx build --platform linux/amd64 -t harbor.openpaper.co/chessbod/opsflow:20250701 --push .
+# docker buildx build --platform linux/amd64 -t harbor.openpaper.co/chessbod/opsflow:20250702 --push .
