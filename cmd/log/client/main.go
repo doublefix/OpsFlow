@@ -9,17 +9,19 @@ import (
 
 	pb "github.com/modcoco/OpsFlow/pkg/proto" // 替换为你实际 proto 生成路径
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
 	// 1. 建立 gRPC 连接
-	conn, err := grpc.Dial("ubuntu:30969", grpc.WithInsecure()) // 或使用 TLS
+	clientConn, err := grpc.NewClient("ubuntu:30969", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("无法连接 gRPC 服务: %v", err)
+		fmt.Printf("gRPC 连接失败: %v\n", err)
+		return
 	}
-	defer conn.Close()
+	defer clientConn.Close()
 
-	client := pb.NewPodLogServiceClient(conn)
+	client := pb.NewPodLogServiceClient(clientConn)
 
 	// 2. 构造请求
 	req := &pb.LogRequest{
