@@ -71,6 +71,12 @@ func main() {
 	pb.RegisterPodExecServiceServer(grpcSrv, podExecHandler)
 	pb.RegisterPodLogServiceServer(grpcSrv, logHandler)
 
+	grpcListener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port: %v", err)
+	}
+
+	// 启动 HTTP 和 gRPC 服务器
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		log.Printf("HTTP server listening on %s", cfg.ListenAddr)
@@ -79,10 +85,6 @@ func main() {
 		}
 		return nil
 	})
-	grpcListener, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("Failed to listen on gRPC port: %v", err)
-	}
 	g.Go(func() error {
 		log.Printf("gRPC server listening on %s", ":50051")
 		if err := grpcSrv.Serve(grpcListener); err != nil {
