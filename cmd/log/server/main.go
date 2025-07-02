@@ -32,9 +32,10 @@ func main() {
 		log.Fatalf("监听失败: %v", err)
 	}
 	grpcServer := grpc.NewServer()
+	logHandler := handler.NewPodLogHandler(clientset)
 
 	// 3. 注入客户端并注册服务
-	pb.RegisterPodLogServiceServer(grpcServer, handler.NewPodLogHandler(clientset))
+	pb.RegisterPodLogServiceServer(grpcServer, logHandler)
 
 	log.Println("gRPC 服务启动，监听端口 :50051")
 	if err := grpcServer.Serve(lis); err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/modcoco/OpsFlow/pkg/router"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Config struct {
@@ -61,6 +62,7 @@ func main() {
 
 	// 创建 gRPC 服务器
 	grpcServer, err := handler.NewPodExecServer()
+	logHandler := handler.NewPodLogHandler(client.Core().(*kubernetes.Clientset))
 	if err != nil {
 		log.Fatalf("Failed to create gRPC server: %v", err)
 	}
@@ -72,6 +74,7 @@ func main() {
 
 	grpcSrv := grpc.NewServer()
 	pb.RegisterPodExecServiceServer(grpcSrv, grpcServer)
+	pb.RegisterPodLogServiceServer(grpcSrv, logHandler)
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
