@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/modcoco/OpsFlow/pkg/proto" // 替换为你实际 proto 生成路径
+	pb "github.com/modcoco/OpsFlow/pkg/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
