@@ -59,14 +59,13 @@ func main() {
 	}
 
 	// 创建 gRPC 服务器
-	grpcSrv, err := server.SetupGRPCServer(client.Core().(*kubernetes.Clientset))
-	if err != nil {
-		log.Fatalf("Failed to setup gRPC server: %v", err)
-	}
-
 	grpcListener, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen on gRPC port: %v", err)
+	}
+	grpcSrv, err := server.SetupGRPCServer(client.Core().(*kubernetes.Clientset))
+	if err != nil {
+		log.Fatalf("Failed to setup gRPC server: %v", err)
 	}
 
 	// 启动 HTTP 和 gRPC 服务器
