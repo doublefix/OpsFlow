@@ -132,6 +132,7 @@ protoc \
   pkg/proto/podlog.proto
 
 
+# 上传模型文件到s3
 s3://ai-models/
 └── huggingface/
     └── deepseek-ai/
@@ -140,6 +141,8 @@ s3://ai-models/
 mc mb s3/ai-models
 # 设可读公开
 mc anonymous set download s3/ai-models
+# 上传整个文件
+mc cp -r ./DeepSeek-R1 s3/ai-models/huggingface/deepseek-ai/
 
 # {"ref": "a1b2c3d4", "tag": "v1.0.0"}
 ```
