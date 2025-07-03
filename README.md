@@ -138,6 +138,8 @@ s3://ai-models/
         └── DeepSeek-R1/
             └── d4c3b2a1/
 mc mb s3/ai-models
+# 设可读公开
+mc anonymous set download s3/ai-models
 
 # {"ref": "a1b2c3d4", "tag": "v1.0.0"}
 ```
