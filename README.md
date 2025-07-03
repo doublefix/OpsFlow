@@ -130,4 +130,13 @@ protoc \
   --go_out=./pkg/proto \
   --go-grpc_opt=paths=source_relative \
   pkg/proto/podlog.proto
+
+
+s3://ai-models-bucket/
+└── huggingface/
+    └── deepseek-ai/
+        └── DeepSeek-R1/
+            └── d4c3b2a1/
+
+# {"ref": "a1b2c3d4", "tag": "v1.0.0"}
 ```
