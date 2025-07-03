@@ -132,11 +132,12 @@ protoc \
   pkg/proto/podlog.proto
 
 
-s3://ai-models-bucket/
+s3://ai-models/
 └── huggingface/
     └── deepseek-ai/
         └── DeepSeek-R1/
             └── d4c3b2a1/
+mc mb s3/ai-models
 
 # {"ref": "a1b2c3d4", "tag": "v1.0.0"}
 ```
