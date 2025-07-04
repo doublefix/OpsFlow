@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-inspect-deploy
+  namespace: default
+  labels:
+    app: model-inspect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-inspect
+  template:
+    metadata:
+      labels:
+        app: model-inspect
+    spec:
+      containers:
+      - name: model-container
+        image: harbor.openpaper.co/base/alpine:20240807
+        command: ["sleep", "infinity"]
+        volumeMounts:
+        - name: model-volume
+          mountPath: /mnt/model
+      volumes:
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-bert-tiny-u3eaf31f
