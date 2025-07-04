@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-bert-tiny-u3eaf31f
+  namespace: default
+  labels:
+    channel: huggingface
+    source: prajjwal1
+    model-name: bert-tiny
+    model-version: u3eaf31f
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: juicefs-sc
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model2pvc-bert-tiny
+  namespace: default
+  labels:
+    channel: huggingface
+    source: prajjwal1
+    model-name: bert-tiny
+    model-version: u3eaf31f
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+      - name: model-container
+        image: harbor.openpaper.co/chess/model-transfer:20250704
+        command:
+          - sh
+          - -c
+          - |
+            echo "Logging into S3..."
+            mc alias set s3 https://s3.openpaper.co:9000 tlnr2Lpbzj4oNKKq02az OjzRv7RryuqHH7eGsSZcFDbUVuYrXTC37boxQCIO
+            echo "Downloading model from S3 to PVC..."
+            mc mirror s3/ai-models/huggingface/prajjwal1/bert-tiny/5fc19a73/ /mnt/model/bert-tiny/
+            echo "Checking for differences..."
+            mc diff s3/ai-models/huggingface/prajjwal1/bert-tiny/5fc19a73/ /mnt/model/bert-tiny/
+
+            sleep 60
+        volumeMounts:
+        - name: model-volume
+          mountPath: /mnt/model
+      restartPolicy: Never
+      volumes:
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-bert-tiny-u3eaf31f
