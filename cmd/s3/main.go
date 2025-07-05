@@ -51,10 +51,4 @@ func main() {
 	}
 }
 
-// mc alias set myminio https://s3.openpaper.co:9000 ccc ccc
-
 // mc ls s3/ai-models/huggingface/google-t5/t5-base/161aed0c/
-// mc mirror s3/ai-models/huggingface/google-t5/t5-base/161aed0c/ ./t5-base/
-
-// mc ls s3/ai-models/huggingface/prajjwal1/bert-tiny/5fc19a73/
-// mc mirror s3/ai-models/huggingface/prajjwal1/bert-tiny/5fc19a73/ ./bert-tiny/
