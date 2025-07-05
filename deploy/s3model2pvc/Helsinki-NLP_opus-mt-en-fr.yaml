@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-opus-mt-en-fr-731nfes6
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: 731nfes6
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: juicefs-sc
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model2pvc-opus-mt-en-fr
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: 731nfes6
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+      - name: model-container
+        image: harbor.openpaper.co/chess/model-transfer:20250704
+        command:
+          - sh
+          - -c
+          - |
+            echo "Logging into S3..."
+            mc alias set s3 https://s3.openpaper.co:9000 tlnr2Lpbzj4oNKKq02az OjzRv7RryuqHH7eGsSZcFDbUVuYrXTC37boxQCIO
+            echo "Downloading model from S3 to PVC..."
+            mc mirror s3/ai-models/huggingface/Helsinki-NLP/opus-mt-en-fr/cb420011/ /mnt/model/opus-mt-en-fr/
+            echo "Checking for differences..."
+            mc diff s3/ai-models/huggingface/Helsinki-NLP/opus-mt-en-fr/cb420011/ /mnt/model/opus-mt-en-fr/
+
+            sleep 60
+        volumeMounts:
+        - name: model-volume
+          mountPath: /mnt/model
+      restartPolicy: Never
+      volumes:
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-opus-mt-en-fr-731nfes6
