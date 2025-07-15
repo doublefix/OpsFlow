@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-opus-mt-en-fr-731nfes6
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: 731nfes6
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: juicefs-sc
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model2pvc-opus-mt-en-fr
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: 731nfes6
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+      - name: model-container
+        image: harbor.openpaper.co/chess/model-transfer:20250711
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          value: "E7KazVqJoSnaL7mAijWV"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "p0YATvG9LabjDvveboem4nKy7ASb27FPLSySQiue"
+        command:
+          - sh
+          - -c
+          - |
+            cd /mnt/model
+            git clone http://modelhub-http.chessbod.svc.cluster.local:3000/modelhub_admin/opus-mt-en-fr.git
+            cd opus-mt-en-fr
+            dvc pull
+            rm -rf .dvc/cache
+            rm -rf .dvc/tmp
+
+            sleep 60
+        volumeMounts:
+        - name: model-volume
+          mountPath: /mnt/model
+      restartPolicy: Never
+      volumes:
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-opus-mt-en-fr-731nfes6
