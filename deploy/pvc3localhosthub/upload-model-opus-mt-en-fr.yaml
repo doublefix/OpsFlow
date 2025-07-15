@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-model-opus-mt-en-fr
+  namespace: default
+  labels:
+    app: model-upload
+    model: opus-mt-en-fr
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: model-upload
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: model-uploader
+          image: harbor.openpaper.co/chess/model-transfer:20250715-3
+          command: ["bash", "/app/upload_model.sh"]
+          env:
+            - name: MODEL_PATH
+              value: "/mnt/model/opus-mt-en-fr"
+            - name: AWS_ACCESS_KEY_ID
+              value: "E7KazVqJoSnaL7mAijWV"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "p0YATvG9LabjDvveboem4nKy7ASb27FPLSySQiue"
+            - name: S3_ENDPOINT_URL
+              value: "https://s3.openpaper.co:9000"
+            - name: S3_BUCKET_NAME
+              value: "s3://modelstore"
+            - name: GIT_REPO_URL
+              value: "http://modelhub-http.chessbod.svc.cluster.local:3000/modelhub_admin/opus-mt-en-fr-test-upload.git"
+            - name: GIT_AUTH_TOKEN
+              value: "22c25c35782c199b682abba9e89289938a75e2ce"
+          volumeMounts:
+            - name: model-volume
+              mountPath: /mnt/model
+      volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-opus-mt-en-fr-hdfa73b9
