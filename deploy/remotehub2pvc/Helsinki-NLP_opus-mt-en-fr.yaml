@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-opus-mt-en-fr-hdfa73b9
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: hdfa73b9
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: juicefs-sc
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hfmodel2pvc-opus-mt-en-fr
+  namespace: default
+  labels:
+    channel: huggingface
+    source: Helsinki-NLP
+    model-name: opus-mt-en-fr
+    model-version: hdfa73b9
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+        - name: model-container
+          image: harbor.openpaper.co/chess/model-download:20250715-8
+          tty: true
+          stdin: true
+          env:
+            - name: HF_REPO_ID
+              value: "Helsinki-NLP/opus-mt-en-fr"
+            - name: HF_LOCAL_DIR
+              value: "/mnt/model/opus-mt-en-fr"
+            - name: HF_ENDPOINT
+              value: "https://hf-mirror.com"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          command: ["python", "/workspace/download_model.py"]
+          volumeMounts:
+            - name: model-volume
+              mountPath: /mnt/model
+      restartPolicy: Never
+      volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-opus-mt-en-fr-hdfa73b9
