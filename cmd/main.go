@@ -49,18 +49,18 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid WORKER_COUNT: %v", err)
 	}
 
-	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "127.0.0.1:6379"), ",")
+	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "10.187.6.5:6379"), ",")
 	if len(redisAddrs) == 0 {
 		return nil, fmt.Errorf("no Redis addresses provided")
 	}
 
 	return &Config{
-		GrpcAddr:       getEnv("GRPC_ADDR", "localhost:50051"),
+		GrpcAddr:       getEnv("GRPC_ADDR", "idp.baihai.co:8980"),
 		ListenAddr:     getEnv("LISTEN_ADDR", ":8090"),
 		QueueName:      getEnv("QUEUE_NAME", "task_queue"),
 		WorkerCount:    workerCount,
 		RedisAddrs:     redisAddrs,
-		RedisPwd:       os.Getenv("REDIS_PASSWORD"),
+		RedisPwd:       "Rma4399",
 		RedisIsCluster: getEnv("REDIS_CLUSTER", "false") == "true",
 	}, nil
 }
