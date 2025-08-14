@@ -49,7 +49,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid WORKER_COUNT: %v", err)
 	}
 
-	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "10.187.6.5:6379"), ",")
+	redisAddrs := strings.Split(getEnv("REDIS_ADDRS", "redis-svc:6379"), ",")
 	if len(redisAddrs) == 0 {
 		return nil, fmt.Errorf("no Redis addresses provided")
 	}
@@ -60,7 +60,7 @@ func LoadConfig() (*Config, error) {
 		QueueName:      getEnv("QUEUE_NAME", "task_queue"),
 		WorkerCount:    workerCount,
 		RedisAddrs:     redisAddrs,
-		RedisPwd:       "Rma4399",
+		RedisPwd:       "",
 		RedisIsCluster: getEnv("REDIS_CLUSTER", "false") == "true",
 	}, nil
 }
