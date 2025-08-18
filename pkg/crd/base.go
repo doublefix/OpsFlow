@@ -2,6 +2,7 @@ package crd
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,7 +14,13 @@ func GetCRDList(crdClient dynamic.ResourceInterface, continueToken string) (*uns
 		Limit:    50,
 		Continue: continueToken,
 	})
-	return crdList, crdList.GetContinue(), err
+	if err != nil {
+		return nil, "", err
+	}
+	if crdList == nil {
+		return nil, "", fmt.Errorf("received nil CRD list from API")
+	}
+	return crdList, crdList.GetContinue(), nil
 }
 
 func DeleteCRD(crdClient dynamic.ResourceInterface, crdName string) error {
