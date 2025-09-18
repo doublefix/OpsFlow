@@ -106,6 +106,7 @@ curl -X GET "http://opsflow-service:8090/api/v1/pod"
 
 curl -X GET "http://ubuntu:30968/api/v1/node?limit=1" | jq .
 
+curl http://opsflow-service.chessbod.svc.cluster.local:30968/api/v1/node
 
 protoc \
   --proto_path=/usr/include \
