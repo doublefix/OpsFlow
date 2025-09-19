@@ -1,0 +1,104 @@
+variables:
+  CI_REGISTRY: ""
+  CI_REGISTRY_USER: ""
+  CI_REGISTRY_PASSWORD: ""
+  IMAGE_REPO: "chess"
+  IMAGE_NAME: "opsflow"
+  DOCKER_CLI_IMAGE: "harbor.openpaper.co/base/docker:28.3-cli"
+  DOCKER_DIND_IMAGE: "harbor.openpaper.co/base/docker:28.3-dind"
+  DOCKER_PLATFORM: "linux/amd64" # linux/amd64,linux/arm64
+
+docker-build:
+  image: "$DOCKER_CLI_IMAGE"
+  stage: build
+  services:
+    - "$DOCKER_DIND_IMAGE"
+  before_script:
+    - |
+      if [ -z "$CI_REGISTRY" ]; then echo "ERROR: CI_REGISTRY is empty!"; exit 1; fi
+      if [ -z "$CI_REGISTRY_USER" ]; then echo "ERROR: CI_REGISTRY_USER is empty!"; exit 1; fi
+      if [ -z "$CI_REGISTRY_PASSWORD" ]; then echo "ERROR: CI_REGISTRY_PASSWORD is empty!"; exit 1; fi
+      if [ -z "$IMAGE_REPO" ]; then echo "ERROR: IMAGE_REPO is empty!"; exit 1; fi
+      if [ -z "$IMAGE_NAME" ]; then echo "ERROR: IMAGE_NAME is empty!"; exit 1; fi
+      echo "All required environment variables are set correctly"
+    - export DATE_TAG=$(date +%Y%m%d)
+    - export IMAGE_TAG="${DATE_TAG}-${CI_COMMIT_SHORT_SHA}"
+    - export FULL_IMAGE_NAME="$CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG"
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker buildx create --use --name builder || true
+  script:
+    - |
+      echo "Building image: $FULL_IMAGE_NAME"
+      docker buildx build \
+        --progress=plain \
+        --platform $DOCKER_PLATFORM \
+        --push \
+        --tag "$FULL_IMAGE_NAME" \
+        --cache-from=type=registry,ref=$CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:cache \
+        --cache-to=type=registry,ref=$CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:cache,mode=max \
+        .
+
+    - |
+      echo "Collecting image information..."
+      mkdir -p artifacts
+
+      INSPECT_JSON=$(docker buildx imagetools inspect "$FULL_IMAGE_NAME" --format "{{json .}}")
+      export IMAGE_SHA256=$(echo "$INSPECT_JSON" | grep -o '"digest": *"sha256:[a-f0-9]*"' | head -1 | awk -F'sha256:' '{print $2}' | tr -d '"')
+      export FULL_IMAGE_NAME_WITH_SHA256="$CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG@sha256:$IMAGE_SHA256"
+
+      cat > artifacts/build-info.json << EOF
+      {
+        "image_name": "$CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME",
+        "image_tag": "$IMAGE_TAG",
+        "image_sha256": "$IMAGE_SHA256",
+        "full_image_name": "$FULL_IMAGE_NAME",
+        "full_image_name_with_sha256": "$FULL_IMAGE_NAME_WITH_SHA256",
+        "commit_sha": "$CI_COMMIT_SHA",
+        "commit_short_sha": "$CI_COMMIT_SHORT_SHA",
+        "branch": "$CI_COMMIT_BRANCH",
+        "build_time": "$(date -Iseconds)",
+        "pipeline_id": "$CI_PIPELINE_ID",
+        "job_id": "$CI_JOB_ID"
+      }
+      EOF
+
+
+      cat > artifacts/image-info.txt << EOF
+      Image Information
+      ==================================
+      Image Name          =>  $CI_REGISTRY/$IMAGE_REPO/$IMAGE_NAME
+      Image Tag           =>  $IMAGE_TAG
+      Image SHA256        =>  $IMAGE_SHA256
+      Full Image          =>  $FULL_IMAGE_NAME
+      Full Image (SHA256) =>  $FULL_IMAGE_NAME_WITH_SHA256
+      Commit SHA          =>  $CI_COMMIT_SHA
+      Branch              =>  $CI_COMMIT_BRANCH
+      Build Time          =>  $(date -Iseconds)
+      Pipeline ID         =>  $CI_PIPELINE_ID
+      Job ID              =>  $CI_JOB_ID
+      ==================================
+      EOF
+      cat artifacts/image-info.txt
+
+
+      cat > artifacts/build-vars.sh << EOF
+      #!/bin/bash
+      export BUILT_IMAGE_NAME="$FULL_IMAGE_NAME"
+      export BUILT_IMAGE_NAME_WITH_SHA256="$FULL_IMAGE_NAME_WITH_SHA256"
+      export BUILT_IMAGE_TAG="$IMAGE_TAG"
+      export BUILT_IMAGE_SHA256="$IMAGE_SHA256"
+      export BUILT_COMMIT_SHA="$CI_COMMIT_SHORT_SHA"
+      EOF
+      chmod +x artifacts/build-vars.sh
+
+  artifacts:
+    name: "docker-build-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - artifacts/
+    expire_in: 30 days
+    when: on_success
+
+  rules:
+    - if: "$CI_COMMIT_REF_NAME =~ /^(builder|tmp-builder.*)$/"
+      exists:
+        - Dockerfile
