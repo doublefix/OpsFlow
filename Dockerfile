@@ -1,13 +1,28 @@
-FROM harbor.openpaper.co/base/golang:1.24.4-alpine3.22 AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o opsflow cmd/main.go
+# Build the opsflow binary
+FROM harbor.openpaper.co/base/golang:1.24 AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
-FROM harbor.openpaper.co/base/alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata
-COPY --from=builder /app/opsflow /usr/local/bin/opsflow
+WORKDIR /workspace
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
+
+# Copy the go source
+COPY . .
+
+# Build
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o opsflow cmd/main.go
+
+# Use distroless as minimal base image to package the opsflow binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM harbor.openpaper.co/base/distroless-static:nonroot
+WORKDIR /
+COPY --from=builder /workspace/opsflow .
+USER 65532:65532
+
 ENTRYPOINT ["opsflow"]
 
 # docker buildx build --platform linux/amd64 -t harbor.openpaper.co/chessbod/opsflow:20250702 --push .
