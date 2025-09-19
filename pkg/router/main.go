@@ -30,6 +30,11 @@ func RegisterRoutes(c *app.Container) *gin.Engine {
 			deployment.DELETE("/:namespace/:name", c.DeploymentHandler.DeleteDeployment)
 		}
 
+		modelPipeline := api.Group("/modelpipeline")
+		{
+			modelPipeline.POST("", c.ModelPiplineHandler.CreateModelPipline)
+		}
+
 		service := api.Group("/service")
 		{
 			service.POST("", c.ServiceHandler.CreateService)
